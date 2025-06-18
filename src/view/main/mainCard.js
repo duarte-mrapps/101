@@ -46,7 +46,7 @@ const MainCard = () => {
                         title: colors.primary
                     },
                     onPress: () => {
-                        navigation.navigate({ name: service?.route, params: { service } })
+                        navigation.navigate(service?.route, { service })
                     }
                 }
             ]}
