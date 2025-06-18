@@ -15,16 +15,6 @@
 # Add any project specific keep options here:
 -keep public class com.horcrux.svg.** {*;}
 
-# MeiZu Fingerprint
--keep class com.fingerprints.service.** { *; }
--dontwarn com.fingerprints.service.**
-
-# Samsung Fingerprint
--keep class com.samsung.android.sdk.** { *; }
--dontwarn com.samsung.android.sdk.**
-
--keep class br.com.juno.** { *; }
--keep class org.webrtc.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
 -keep class com.rt2zz.reactnativecontacts.** {*;}
@@ -36,5 +26,3 @@
 -keep class com.google.android.gms.common.** {*;}
 
 -dontwarn com.wix.reactnativekeyboardinput.**
-
--keep class com.nozbe.watermelondb.** { *; }

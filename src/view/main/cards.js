@@ -1,20 +1,23 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Platform, ImageBackground, Linking, Dimensions } from 'react-native';
+import { View, Platform, ImageBackground, Linking, Dimensions, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Item } from 'react-native-ui-devkit';
 import { isTablet } from 'react-native-device-info';
+import { Item } from 'react-native-ui-devkit';
 import FastImage from 'react-native-fast-image';
 import Carousel from 'react-native-snap-carousel';
 
 import { GlobalContext } from '../../libs/globalContext';
+import { LaunchArguments } from 'react-native-launch-arguments';
 import Session from '../../libs/session';
 
 const Cards = () => {
     const { global, store } = useContext(GlobalContext);
     const navigation = useNavigation();
     const config = Session.getConfig();
-    const ads = Session.getAds(config?.unifiedAds ? 'all' : store?._id);
+    const ads = Session.getAds(store?._id);
     const width = Dimensions.get('window').width;
+
+    const isTesting = LaunchArguments.value()?.isTesting || false
 
     const percentTablet = (((isTablet() || Platform.isPad) && width >= 768) && (config?.bypassAppStore != true)) ? (Platform.OS == 'ios' ? 0.58 : 0.56) : 1;
     const [sliderWidth, setSliderWidth] = useState(width * percentTablet);
@@ -63,6 +66,7 @@ const Cards = () => {
                             source={{ uri: item.image, priority: FastImage.priority.high }}
                             style={{ width: '100%', aspectRatio: 480 / 280 }}
                             resizeMode={FastImage.resizeMode.contain}
+                            testID={`Banner-${index}`}
                         />
                     </ImageBackground>,
                 padding: false,
@@ -73,17 +77,18 @@ const Cards = () => {
     }
 
     return sliderWidth && (
-        <View style={{ paddingTop: Platform.OS == 'ios' ? 15 : 0 }} testID="MainCarrousel">
+        <View style={{ paddingTop: Platform.OS == 'ios' ? 15 : 0 }}>
             <Carousel
                 data={store?.banners}
                 renderItem={renderItem}
                 keyExtractor={(item, index) => String(index)}
-                autoplay={true}
+                autoplay={isTesting ? false : true}
                 autoplayDelay={6000}
                 autoplayInterval={6000}
                 layout='default'
                 sliderWidth={sliderWidth}
                 itemWidth={itemWidth}
+                testID="MainCarrousel"
             />
         </View>
     )

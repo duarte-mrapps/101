@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useState } from "react"
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useState } from "react"
 import { Button, Icon, IosOldVersion, Item, List, useColors } from "react-native-ui-devkit"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -21,6 +21,7 @@ const AdsFilter = () => {
   const [originalData, setOriginalData] = useState([])
   const [data, setData] = useState([])
 
+  const [storesArray, setStoresArray] = useState([])
   const [conditionArray, setConditionArray] = useState([])
   const [brandArray, setBrandArray] = useState([])
   const [modelArray, setModelArray] = useState([])
@@ -35,8 +36,6 @@ const AdsFilter = () => {
   const [kmArray, setKmArray] = useState([])
   const [loading, setLoading] = useState(false)
 
-  const storesArray = useMemo(() => { return config?.stores?.map(item => item?.company) }, [config])
-
   useLayoutEffect(() => {
     navigation.setOptions({
       ...Platform.OS == 'ios' && {
@@ -47,34 +46,42 @@ const AdsFilter = () => {
             selectedIndex={filterTemp?.type ? filterTemp?.type : 0}
             onChange={(e) => {
               const index = e?.nativeEvent?.selectedSegmentIndex
-              updateFilterTemp({ ...filterTemp, type: index == 0 ? null : index })
+              updateFilterTemp(prev => ({ store: prev?.store, type: index == 0 ? null : index }))
             }}
           />
         ),
         headerLeft: () => <Button link data={{ title: 'Cancelar', onPress: () => { updateFilterTemp(filter); navigation.goBack(); } }} />
       },
-      headerRight: () => <Button link data={{
-        title: 'Filtar', loading, onPress: () => {
-          setLoading(true);
-          updateFilter(filterTemp)
-          navigation.navigate({ name: 'Search', merge: true });
-        }
-      }} />
+      headerRight: () =>
+        <Button
+          link
+          data={{
+            title: 'Filtrar', loading, onPress: () => {
+              setLoading(true);
+              updateFilter(filterTemp)
+
+              navigation.goBack()
+            }
+          }}
+        />
     })
   }, [navigation, filterTemp, colors, loading])
 
   useEffect(() => {
-    setTimeout(() => {
-      getCachedAPIData();
-      getCahcedData();
-    }, 250);
+    getCachedAPIData(filterTemp?.store?._id);
   }, [])
+
+  useEffect(() => {
+    getCachedAPIData(filterTemp?.store?._id);
+  }, [filterTemp?.store?._id]);
 
   useEffect(() => {
     if (data) { populateFieldsArray() }
   }, [data, filterTemp])
 
-
+  useEffect(() => {
+    filterBasedOnConditions(originalData, filterTemp)
+  }, [originalData, filterTemp]);
 
   useEffect(() => {
     if (route.params?.value && route.params?.field) {
@@ -85,22 +92,28 @@ const AdsFilter = () => {
       if (field === 'store') {
         const storeId = config?.stores?.find(item => item?.company === value)?._id;
         const storeCompany = config?.stores?.find(item => item?.company === value)?.company;
-        data = { ...data, store: { _id: storeId, name: storeCompany } }
+        data = { store: { _id: storeId, name: storeCompany } }
         updateFilterTemp(data);
       } else if (field === 'brand') {
-        data = { ...data, brand: value, model: undefined }
+        data = { store: data?.store, type: data?.type, condition: data?.condition, armored: data?.armored, brand: value }
         updateFilterTemp(data);
-      } else if (field === 'color') {
-        data = { ...data, color: data?.color?.includes(value) ? data?.color?.filter(c => c !== value) : value }
+      } else if (field === 'model') {
+        data = { store: data?.store, type: data?.type, condition: data?.condition, armored: data?.armored, brand: data?.brand, model: value }
+        updateFilterTemp(data);
+      } else if (field == 'mileage') {
+        data = { ...data, mileage: value.replace(/\D+/g, '') }
+        updateFilterTemp(data)
+      } else if (field === 'transmission') {
+        data = { ...data, transmission: data?.transmission?.includes(value) ? data?.transmission?.filter(c => c !== value) : value }
         updateFilterTemp(data);
       } else if (field === 'fuel') {
         data = { ...data, fuel: data?.fuel?.includes(value) ? data?.fuel?.filter(c => c !== value) : value }
         updateFilterTemp(data);
+      } else if (field === 'color') {
+        data = { ...data, color: data?.color?.includes(value) ? data?.color?.filter(c => c !== value) : value }
+        updateFilterTemp(data);
       } else if (field === 'optionals') {
         data = { ...data, optionals: data?.optionals?.includes(value) ? data?.optionals?.filter(c => c !== value) : value }
-        updateFilterTemp(data);
-      } else if (field === 'transmission') {
-        data = { ...data, transmission: data?.transmission?.includes(value) ? data?.transmission?.filter(c => c !== value) : value }
         updateFilterTemp(data);
       } else if (field?.includes('price')) {
         const priceField = field.split('.')[1]
@@ -114,77 +127,142 @@ const AdsFilter = () => {
         }
       } else if (field?.includes('year')) {
         const yearField = field.split('.')[1]
-        if(yearField == 'from' && value > data?.year?.to) {
+        if (yearField == 'from' && value > data?.year?.to) {
           data = { ...data, year: { ...data.year, [yearField]: value, to: null } }
         } else {
-          data = { ...data, year: { ...data.year, [yearField]: value} }
+          data = { ...data, year: { ...data.year, [yearField]: value } }
         }
 
-        updateFilterTemp(data)
-      } else if (field == 'mileage') {
-        data = { ...data, mileage: value.replace(/\D+/g, '') }
         updateFilterTemp(data)
       } else {
         data = { ...data, [field]: value }
         updateFilterTemp(data);
       }
     }
-  }, [route.params?.value, route.params?.field]);
+  }, [route.params]);
+
+  const populateFieldsArray = useCallback(() => {
+    setStoresArray(storeGroupAndCount(config?.stores?.filter(item => (item?.hidden != true && item?.virtual == false && item?.services?.length > 0))?.map(item => ({ description: item.company, _id: item._id, count: 0, hidden: item?.hidden, virtual: item?.virtual, services: item?.services }))));
+    setConditionArray([{ description: 'Novos / Seminovos', count: originalData?.filter(item => item.isZeroKm === true || item.isZeroKm === false).length }, { description: 'Novos', count: originalData?.filter(item => item.isZeroKm === true).length }, { description: 'Seminovos', count: originalData?.filter(item => item.isZeroKm === false).length }]);
+    setBrandArray(groupAndCount(originalData?.filter(item => !filterTemp?.type ? item : (filterTemp?.type === 1 ? item.type === 1 : item.type === 2)).map(item => item.brand)));
+    setModelArray(groupAndCount(originalData?.filter((item) => item.brand == filterTemp?.brand)?.filter(item => !filterTemp?.type ? item : (filterTemp?.type == 1 ? item.type == 1 : item.type == 2)).map(item => item.model)));
+    setTransmissionArray(groupAndCount(data?.map((item) => item.transmission)));
+    setOptionalsArray(groupAndCount(data?.flatMap((item) => item.optionals || []).filter((optional) => optional !== undefined)));
+    setColorArray(groupAndCount((data?.flatMap((item) => item.color))).sort());
+    setFuelArray(groupAndCount(data?.flatMap((item) => item.fuel)));
+    setYearArrayFrom(generateDescendingYearArray('from'));
+    setYearArrayTo(generateDescendingYearArray('to'));
+    setPriceArrayFrom(generateCurrencyArray('from'));
+    setPriceArrayTo(generateCurrencyArray('to'));
+    setKmArray(generateKmArray(100000, 5000));
+  }, [data, config, filterTemp])
+
 
   const groupAndCount = (items) => {
-    const transformedData = items.map((item) => ({ description: item }));
+    try {
+      const transformedData = items?.map((item) => ({ description: item }));
+      const grouped = transformedData?.reduce((acc, item) => {
+        const key = item.description;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
 
-    const grouped = transformedData.reduce((acc, item) => {
-      const key = item.description;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-
-    return Object.entries(grouped).map(([key, count]) => ({
-      description: key,
-      count,
-    })).sort((a, b) => a.description.localeCompare(b.description));
-  }
-
-  const getCachedAPIData = async () => {
-    const data = Session.getAds(config?.unifiedAds ? 'all' : store?._id)
-    if (data) setData(data)
-  }
-
-  const getCahcedData = async () => {
-    const data = Session.getAds(config?.unifiedAds ? 'all' : store?._id)
-    if (data) setOriginalData(data)
+      return Object.entries(grouped).map(([key, count]) => ({
+        description: key,
+        count,
+      })).sort((a, b) => a.description.localeCompare(b.description));
+    } catch (error) {
+      return [];
+    }
   }
 
 
-  const generateCurrencyArray = (type) => {
-    const brlFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const storeGroupAndCount = (items) => {
+    const data = Session.getAds(store?._id)
 
-    const prices = data?.map(item => item.price);
+    let defaultStore;
+    const joinStores = [];
 
-    const startValue = Math.min(...prices);
-    const endValue = Math.max(...prices);
+    defaultStore = items?.find((item) => item?._id == config?.defaultStore);
+    defaultStore && joinStores.push(defaultStore);
 
-    const roundedArray = [];
+    let othersStores = items?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0 && store?._id != config?.defaultStore));
+    othersStores?.sort((a, b) => a?.description?.localeCompare(b?.description));
+    othersStores && joinStores.push(...othersStores);
 
-    const roundToFloor = (number) => Math.floor(number / 5000) * 5000;
-    const roundToCeil = (number) => Math.ceil(number / 5000) * 5000;
-    const roundToNearestMultipleOf5k = (number) => Math.round(number / 5000) * 5000;
+    if (config?.unifiedAds) {
+      let defaultStore = joinStores?.find((item) => item?._id == config?.unifiedAdsStore);
 
-    const roundedStartValue = (type === 'to' && filterTemp?.price?.from) ? roundToFloor(filterTemp?.price?.from) : startValue;
-    const roundedEndValue = roundToCeil(endValue);
+      if (defaultStore) {
+        joinStores.map((store) => (
+          store.count = (defaultStore?._id == store?._id ? data?.length : data?.filter((ad) => ad?.store == store?._id)?.length) || 0
+        ));
+      } else {
+        joinStores.map(store => (
+          store.count = data?.length || 0
+        ));
+      }
 
-    for (let i = roundedStartValue; i <= roundedEndValue; i += 5000) {
-      const roundedValue = roundToNearestMultipleOf5k(i);
-      roundedArray.push({ description: brlFormatter.format(roundedValue), count: '' });
+    } else {
+      joinStores.map(store => (
+        store.count = data?.filter((ad) => ad?.store == store?._id)?.length || 0
+      ));
+    }
+    return joinStores;
+  };
+
+
+  const getCachedAPIData = async (storeId) => {
+    const data = Session.getAds(store?._id)
+    const defaultStore = config?.stores?.find((item) => item?._id == config?.unifiedAdsStore);
+
+    if (!storeId) {
+      setData(data)
+      setOriginalData(data)
+      return
     }
 
-    return roundedArray;
+    if (defaultStore?._id == storeId) {
+      setData(data)
+      setOriginalData(data)
+      return
+    } else {
+      const ads = data?.filter(item => item?.store == storeId)
+      setOriginalData(ads)
+      setData(ads)
+      return
+    }
   }
 
+  const generateCurrencyArray = (type) => {
+    const brlFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+    const prices = data?.map(item => item.price).filter(price => price !== undefined && price !== null)
+    if (prices.length === 0) return []
+
+    const startValue = Math.min(...prices)
+    const endValue = Math.max(...prices)
+
+    const roundedArray = []
+
+    const roundToFloor = (number) => Math.floor(number / 5000) * 5000
+    const roundToCeil = (number) => Math.ceil(number / 5000) * 5000
+
+    // Garante que o valor inicial arredonde sempre para baixo
+    const roundedStartValue = roundToFloor(type === 'to' && filterTemp?.price?.from ? filterTemp.price.from : startValue)
+    const roundedEndValue = roundToCeil(endValue)
+
+    for (let i = roundedStartValue; i <= roundedEndValue; i += 5000) {
+      roundedArray.push({ description: brlFormatter.format(i), count: null })
+    }
+
+    return roundedArray
+  }
+
+
   const generateDescendingYearArray = (type) => {
-    const yearsFromData = groupAndCount(originalData?.map(item => item?.manufactureYear))
-    const yearsToData = groupAndCount(originalData?.map(item => item?.modelYear))
+    const yearsFromData = groupAndCount(data?.map(item => item?.manufactureYear))
+    const yearsToData = groupAndCount(data?.map(item => item?.modelYear))
 
     if (type == 'from') {
       return yearsFromData;
@@ -199,44 +277,29 @@ const AdsFilter = () => {
 
   const generateKmArray = () => {
     const kmFormatter = new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' })
-    const mileages = data?.map(item => item.mileage);
-    const startValue = Math.min(...mileages);
-    const endValue = Math.max(...mileages);
 
-    const roundedArray = [];
+    const mileages = data?.map(item => item.mileage).filter(mileage => mileage !== undefined && mileage !== null)
+    if (mileages.length === 0) return []
 
-    const roundToFloor = (number) => Math.floor(number / 5000) * 5000;
-    const roundToCeil = (number) => Math.ceil(number / 5000) * 5000;
-    const roundToNearestMultipleOf5k = (number) => Math.round(number / 5000) * 5000;
+    const startValue = Math.min(...mileages)
+    const endValue = Math.max(...mileages)
 
-    const roundedStartValue = roundToFloor(startValue);
-    const roundedEndValue = roundToCeil(endValue);
+    const roundedArray = []
+
+    const roundToFloor = (number) => Math.floor(number / 5000) * 5000
+    const roundToCeil = (number) => Math.ceil(number / 5000) * 5000
+
+    // Garante que o valor inicial sempre arredonde para baixo
+    const roundedStartValue = roundToFloor(startValue)
+    const roundedEndValue = roundToCeil(endValue)
 
     for (let i = roundedStartValue; i <= roundedEndValue; i += 5000) {
-      const roundedValue = roundToNearestMultipleOf5k(i);
-      roundedArray.push({ description: kmFormatter.format(roundedValue), count: '' });
+      roundedArray.push({ description: kmFormatter.format(i), count: null })
     }
-    return roundedArray;
+
+    return roundedArray
   }
 
-  const populateFieldsArray = () => {
-    setBrandArray(groupAndCount(data?.filter(item => !filterTemp?.type || filterTemp?.type === 1 ? item.type === 1 : item.type === 2).map(item => item.brand)));
-    setModelArray(groupAndCount(data?.filter((item) => item.brand == filterTemp?.brand)?.filter(item => !filterTemp?.type || filterTemp?.type == 1 ? item.type == 1 : item.type == 2).map(item => item.model)));
-    setTransmissionArray(groupAndCount(originalData?.map((item) => item.transmission)));
-    setOptionalsArray(
-      groupAndCount(
-        originalData?.flatMap((item) => item.optionals || []).filter((optional) => optional !== undefined)
-      )
-    );
-    setColorArray(groupAndCount((originalData?.flatMap((item) => item.color))).sort());
-    setFuelArray(groupAndCount(originalData?.flatMap((item) => item.fuel)));
-    setYearArrayFrom(generateDescendingYearArray('from'));
-    setYearArrayTo(generateDescendingYearArray('to'));
-    setPriceArrayFrom(generateCurrencyArray('from'));
-    setPriceArrayTo(generateCurrencyArray('to'));
-    setKmArray(generateKmArray(100000, 5000));
-    setConditionArray([{ description: 'Novos / Seminovos', count: originalData?.filter(item => item.isZeroKm === true || item.isZeroKm === false).length }, { description: 'Novos', count: originalData?.filter(item => item.isZeroKm === true).length }, { description: 'Seminovos', count: originalData?.filter(item => item.isZeroKm === false).length }]);
-  }
 
   const filterBasedOnConditions = (data, filterTemp) => {
     const filteredData = data.filter(item => {
@@ -246,13 +309,51 @@ const AdsFilter = () => {
         matches = matches && item.type === filterTemp?.type;
       }
 
-      // if (filterTemp?.brand) {
-      //   matches = matches && item.brand === filterTemp?.brand;
-      // }
+
+      if (filterTemp?.store?._id) {
+        const isUnifiedAdsStore = filterTemp?.store?._id == config?.unifiedAdsStore;
+
+        if (isUnifiedAdsStore) {
+          matches = true
+        } else {
+          matches = matches && item.store?.toString() === filterTemp?.store?._id.toString();
+        }
+      }
+
+      if (filterTemp?.condition) {
+        if (Array.isArray(filterTemp?.condition)) {
+          if (filterTemp?.condition.includes('Novos / Seminovos')) {
+            matches = matches && (item.isZeroKm === true || item.isZeroKm === false);
+          }
+          if (filterTemp?.condition.includes('Novos')) {
+            matches = matches && item.isZeroKm === true;
+          }
+          if (filterTemp?.condition.includes('Seminovos')) {
+            matches = matches && item.isZeroKm === false;
+          }
+        } else {
+          if (filterTemp?.condition === 'Novos') {
+            matches = matches && item.isZeroKm === true;
+          }
+          if (filterTemp?.condition === 'Seminovos') {
+            matches = matches && item.isZeroKm === false;
+          }
+        }
+      }
+
+      if (filterTemp?.armored !== undefined) {
+        matches = matches && item.armored === filterTemp?.armored;
+      }
+
+      if (filterTemp?.brand) {
+        matches = matches && item.brand === filterTemp?.brand;
+      }
 
       if (filterTemp?.model) {
         matches = matches && item.model === filterTemp?.model;
       }
+
+
 
       if (Array.isArray(filterTemp?.transmission) && filterTemp?.transmission?.length > 0) {
         matches = matches && filterTemp?.transmission?.some(trans => item?.transmission?.includes(trans));
@@ -282,42 +383,12 @@ const AdsFilter = () => {
         matches = matches && item.modelYear <= filterTemp?.year?.to;
       }
 
-      // if (filterTemp?.price?.from) {
-      //   matches = matches && item.price >= filterTemp?.price?.from;
-      // }
-
-      // if (filterTemp?.price?.to) {
-      //   matches = matches && item.price <= filterTemp?.price?.to;
-      // }
-
-      if (filterTemp?.mileage) {
-        matches = matches && item.mileage <= filterTemp?.mileage;
+      if (filterTemp?.price?.from) {
+        matches = matches && item.price >= filterTemp?.price?.from;
       }
 
-
-      if (filterTemp?.condition) {
-        if (Array.isArray(filterTemp?.condition)) {
-          if (filterTemp?.condition.includes('Novos / Seminovos')) {
-            matches = matches && (item.isZeroKm === true || item.isZeroKm === false);
-          }
-          if (filterTemp?.condition.includes('Novos')) {
-            matches = matches && item.isZeroKm === true;
-          }
-          if (filterTemp?.condition.includes('Seminovos')) {
-            matches = matches && item.isZeroKm === false;
-          }
-        } else {
-          if (filterTemp?.condition === 'Novos') {
-            matches = matches && item.isZeroKm === true;
-          }
-          if (filterTemp?.condition === 'Seminovos') {
-            matches = matches && item.isZeroKm === false;
-          }
-        }
-      }
-
-      if (filterTemp?.armored !== undefined) {
-        matches = matches && item.armored === filterTemp?.armored;
+      if (filterTemp?.price?.to) {
+        matches = matches && item.price <= filterTemp?.price?.to;
       }
 
       return matches;
@@ -326,10 +397,6 @@ const AdsFilter = () => {
     setData(filteredData);
   }
 
-  useEffect(() => {
-    filterBasedOnConditions(originalData, filterTemp)
-  }, [originalData, filterTemp]);
-
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -337,31 +404,41 @@ const AdsFilter = () => {
       contentContainerStyle={{ paddingBottom: insets.bottom ? insets.bottom : 15 }}>
 
       {Platform.OS == 'android' &&
-        <Item data={{
-          component:
-            <SegmentedControl
-              values={['Todos', 'Carro', 'Moto']}
-              style={{ marginHorizontal: 15, width: 180 }}
-              icons={[
-                <Icon name='list' type={'font-awesome5'} color={filterTemp?.type == 1 ? colors.primary : colors.secondary} size={21} style={{ marginTop: 5 }} />,
-                <Icon name='car-side' type={'font-awesome5'} color={filterTemp?.type == 1 ? colors.primary : colors.secondary} size={21} style={{ marginTop: 5 }} />,
-                <Icon name='motorbike' type={'material-community'} color={filterTemp?.type == 2 ? colors.primary : colors.secondary} size={30} style={{ marginBottom: 0 }} />,
-              ]}
-              selectedIndex={filterTemp?.type ? filterTemp?.type : 0}
-              onChange={(e) => {
-                const index = e?.nativeEvent?.selectedSegmentIndex
-                updateFilterTemp({ ...filterTemp, type: index == 0 ? null : index })
-              }}
-            />,
-          padding: IosOldVersion() || !Platform.OS == 'android'
-        }} style={{ backgroundColor: 'transparent' }} marginTop={true} separators={false} />
+        <Item
+          data={{
+            component:
+              <SegmentedControl
+                values={['Todos', 'Carro', 'Moto']}
+                style={{ marginHorizontal: 15, width: 180 }}
+                icons={[
+                  <Icon name='list' type={'font-awesome5'} color={filterTemp?.type == 1 ? colors.primary : colors.secondary} size={21} style={{ marginTop: 5 }} />,
+                  <Icon name='car-side' type={'font-awesome5'} color={filterTemp?.type == 1 ? colors.primary : colors.secondary} size={21} style={{ marginTop: 5 }} />,
+                  <Icon name='motorbike' type={'material-community'} color={filterTemp?.type == 2 ? colors.primary : colors.secondary} size={30} style={{ marginBottom: 0 }} />,
+                ]}
+                selectedIndex={filterTemp?.type ? filterTemp?.type : 0}
+                onChange={(e) => {
+                  const index = e?.nativeEvent?.selectedSegmentIndex
+                  updateFilterTemp(prev => ({ store: prev?.store, type: index == 0 ? null : index }))
+                }}
+              />,
+            padding: IosOldVersion() || !Platform.OS == 'android'
+          }}
+          style={{ backgroundColor: 'transparent' }}
+          marginTop={true}
+          separators={false}
+        />
       }
 
-      {config?.unifiedAds && ((config?.unifiedAdsStore == store?._id) || (config?.unifiedAdsStore == null)) &&
+      {config?.unifiedAds && ((config?.unifiedAdsStore == store?._id) || (config?.unifiedAdsStore == null)) && storesArray?.length > 1 &&
         <Item
           data={{
             title: 'Loja',
             description: filterTemp?.store?.name ?? 'Selecionar...',
+            subdescription: filterTemp?.store?.name ?? 'Selecionar...',
+            cleaner: {
+              visible: filterTemp?.store?.name,
+              onPress: () => { clearFilter(['store', 'condition', 'armored', 'brand', 'model', 'year.from', 'year.to', 'price.from', 'price.to', 'mileage', 'transmission', 'fuel', 'color', 'optionals']); }
+            },
             onPress: () => {
               navigation.navigate({
                 name: 'AdsFilterItem',
@@ -396,7 +473,15 @@ const AdsFilter = () => {
               })
             }
           },
-          { title: 'Blindados', checkbox: filterTemp?.armored ?? false, delay: false, chevron: false, onPress: () => { updateFilterTemp({ ...filterTemp, armored: !filterTemp?.armored }) } },
+          {
+            title: 'Blindados',
+            checkbox: filterTemp?.armored ?? false,
+            delay: false,
+            chevron: false,
+            onPress: () => {
+              updateFilterTemp(prev => ({ store: prev?.store, condition: prev?.condition, armored: !prev?.armored }))
+            }
+          }
         ]}
         marginTop={!IosOldVersion()}
       />
@@ -409,7 +494,7 @@ const AdsFilter = () => {
             disabled: !filterTemp?.brand && brandArray?.length == 0,
             cleaner: {
               visible: filterTemp?.brand?.length,
-              onPress: () => { clearFilter('brand'); }
+              onPress: () => { clearFilter(['brand', 'model', 'year.from', 'year.to', 'price.from', 'price.to', 'mileage', 'transmission', 'fuel', 'color', 'optionals']); }
             },
             onPress: () => {
               navigation.navigate({
@@ -430,7 +515,7 @@ const AdsFilter = () => {
             disabled: !filterTemp?.brand && !filterTemp?.model && !modelArray?.length,
             cleaner: {
               visible: filterTemp?.model?.length,
-              onPress: () => { clearFilter('model'); }
+              onPress: () => { clearFilter(['model', 'year.from', 'year.to', 'price.from', 'price.to', 'mileage', 'transmission', 'fuel', 'color', 'optionals']); }
             },
             onPress: () => {
               navigation.navigate({
@@ -455,7 +540,7 @@ const AdsFilter = () => {
             disabled: !filterTemp?.year?.from && yearArrayFrom?.length == 0,
             cleaner: {
               visible: filterTemp?.year?.from?.length,
-              onPress: () => { clearFilter('year.from'); clearFilter('year.to') }
+              onPress: () => { clearFilter(['year.from', 'year.to']); }
             },
             onPress: () => {
               navigation.navigate({
@@ -503,7 +588,7 @@ const AdsFilter = () => {
             disabled: !filterTemp?.price?.from > 0 && priceArrayFrom?.length == 0,
             cleaner: {
               visible: filterTemp?.price?.from?.length,
-              onPress: () => { clearFilter('price.from'); }
+              onPress: () => { clearFilter('price.from', 'price.to'); }
             },
             onPress: () => {
               navigation.navigate({
@@ -667,7 +752,15 @@ const AdsFilter = () => {
         }}
       />
 
-      <Button destructive data={{ title: 'Limpar', onPress: async () => { clearFilter(); navigation.navigate({ name: 'Search', params: { filter }, merge: true }); } }} />
+      <Button
+        destructive
+        data={{
+          title: 'Limpar',
+          onPress: async () => {
+            clearFilter()
+            navigation.pop()
+          }
+        }} />
     </ScrollView>
   )
 }

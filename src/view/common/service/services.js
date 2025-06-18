@@ -40,11 +40,7 @@ const ServicesServices = () => {
                         title: 'Concluir',
                         disabled: !data?.length,
                         onPress: () => {
-                            navigation.navigate({
-                                name: backScreen,
-                                params: { serviceParams: data },
-                                merge: true
-                            })
+                            navigation.navigate(backScreen, { serviceParams: data })
                         }
                     }}
                 />,
