@@ -65,85 +65,68 @@ if [ -z "$BUNDLE_ID" ]; then
 fi
 log "bundleId: $BUNDLE_ID"
 
-# Extrair app_name do Android
+# Extrair app_name
 APP_NAME_ANDROID=$(grep 'name="app_name"' android/app/src/main/res/values/strings.xml | sed -E 's/.*>(.*)<.*/\1/')
-
-# Extrair display name do iOS (ignorando extensão do OneSignal)
-APP_NAME_IOS=$(grep INFOPLIST_KEY_CFBundleDisplayName "$PBXPROJ_PATH" \
-  | grep -v OneSignalNotificationServiceExtension \
-  | head -n 1 \
-  | cut -d '=' -f2 \
-  | cut -d ';' -f1 \
-  | sed 's/"//g' \
-  | xargs)
-
-# Usar o nome do iOS como padrão se disponível
+APP_NAME_IOS=$(grep INFOPLIST_KEY_CFBundleDisplayName "$PBXPROJ_PATH" | grep -v OneSignalNotificationServiceExtension | head -n 1 | cut -d '=' -f2 | cut -d ';' -f1 | sed 's/"//g' | xargs)
 APP_NAME=$APP_NAME_IOS
-if [ -z "$APP_NAME" ]; then
-  APP_NAME=$APP_NAME_ANDROID
-fi
-
+[ -z "$APP_NAME" ] && APP_NAME=$APP_NAME_ANDROID
 log "APP_NAME: $APP_NAME"
 
+# Session vars
 SESSION_FILE="src/libs/session.js"
 ACCOUNT_ID=$(grep "ACCOUNT_ID" $SESSION_FILE | head -n 1 | sed -E "s/.*ACCOUNT_ID: '([^']+)'.*/\1/")
 ONESIGNAL_APP_ID=$(grep "ONESIGNAL_APP_ID" $SESSION_FILE | head -n 1 | sed -E "s/.*ONESIGNAL_APP_ID: '([^']+)'.*/\1/")
-
 log "ACCOUNT_ID: $ACCOUNT_ID"
 log "ONESIGNAL_APP_ID: $ONESIGNAL_APP_ID"
 
-# Extrai cores do storyboard antigo
+# Storyboard colors
 OLD_STORYBOARD=$(find ios -name "LaunchScreen.storyboard" | grep -v appdaloja | head -n 1)
 RED=$(grep -o 'red="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
 GREEN=$(grep -o 'green="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
 BLUE=$(grep -o 'blue="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
-
 log "RED: $RED"
 log "GREEN: $GREEN"
 log "BLUE: $BLUE"
 
-# Faz backup dos assets
+# Backup dos assets
 log "Backing up assets..."
 TMP_BACKUP=$(mktemp -d)
-
 mkdir -p $TMP_BACKUP/res
 cp -R android/app/src/main/res/* $TMP_BACKUP/res/
-
 mkdir -p $TMP_BACKUP/xcassets
 cp -R ios/cardealer/Images.xcassets/* $TMP_BACKUP/xcassets/
-
 cp ios/GoogleService-Info.plist $TMP_BACKUP/GoogleService-Info.plist || true
 cp android/app/google-services.json $TMP_BACKUP/google-services.json || true
-
-# Backup da pasta prints
 if [ -d prints ]; then
   mkdir -p $TMP_BACKUP/prints
   cp -R prints/* $TMP_BACKUP/prints/
   log "prints folder backed up"
-else
-  log "prints folder not found, skipping backup"
 fi
 
-# Copiar MARKETING_VERSION e CURRENT_PROJECT_VERSION
+# Versões iOS
 CARDEALER_PBXPROJ="ios/cardealer.xcodeproj/project.pbxproj"
 APPDALOJA_PBXPROJ="ios/appdaloja.xcodeproj/project.pbxproj"
-
 MARKETING_VERSION=$(grep -v OneSignalNotificationServiceExtension "$CARDEALER_PBXPROJ" | grep MARKETING_VERSION | head -n 1 | awk '{print $3}' | tr -d ';')
 CURRENT_PROJECT_VERSION=$(grep -v OneSignalNotificationServiceExtension "$CARDEALER_PBXPROJ" | grep CURRENT_PROJECT_VERSION | head -n 1 | awk '{print $3}' | tr -d ';')
-
 log "MARKETING_VERSION: $MARKETING_VERSION"
 log "CURRENT_PROJECT_VERSION: $CURRENT_PROJECT_VERSION"
 
-# Limpa o projeto na main
+# Versões Android
+CARDEALER_GRADLE="android/app/build.gradle"
+APPDALOJA_GRADLE="android/app/build.gradle"
+VERSION_CODE=$(grep versionCode $CARDEALER_GRADLE | head -n 1 | awk '{print $2}')
+VERSION_NAME=$(grep versionName $CARDEALER_GRADLE | head -n 1 | cut -d '"' -f2)
+log "VERSION_CODE: $VERSION_CODE"
+log "VERSION_NAME: $VERSION_NAME"
+
+# Limpa a main
 log "Cleaning project on main branch..."
 find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} \;
 
-# Clona o template isoladamente
+# Clona o template
 log "Cloning template repository..."
 WORK_DIR=$(mktemp -d)
 git clone $TEMPLATE_REPO $WORK_DIR
-
-# Remove o .git do template para não sobrescrever o repositório
 rm -rf $WORK_DIR/.git
 
 # Substitui placeholders
@@ -157,28 +140,27 @@ do
   done
 done
 
-# Atualiza versões no novo pbxproj
+# Atualiza versões no novo projeto
 if [ -f "$APPDALOJA_PBXPROJ" ]; then
   sed -i.bak "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $MARKETING_VERSION;/" "$APPDALOJA_PBXPROJ"
   sed -i.bak "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $CURRENT_PROJECT_VERSION;/" "$APPDALOJA_PBXPROJ"
   rm "$APPDALOJA_PBXPROJ.bak"
-else
-  log "Arquivo $APPDALOJA_PBXPROJ não encontrado para substituir versões."
 fi
 
-# Restaura os assets no template
-log "Restoring assets into template..."
+if [ -f "$APPDALOJA_GRADLE" ]; then
+  sed -i.bak "s/versionCode .*/versionCode $VERSION_CODE/" "$APPDALOJA_GRADLE"
+  sed -i.bak "s/versionName \".*\"/versionName \"$VERSION_NAME\"/" "$APPDALOJA_GRADLE"
+  rm "$APPDALOJA_GRADLE.bak"
+fi
 
+# Restaura assets
+log "Restoring assets into template..."
 mkdir -p android/app/src/main/res
 cp -R $TMP_BACKUP/res/* android/app/src/main/res/
-
 mkdir -p ios/appdaloja/Images.xcassets
 cp -R $TMP_BACKUP/xcassets/* ios/appdaloja/Images.xcassets/
-
 cp $TMP_BACKUP/GoogleService-Info.plist ios/GoogleService-Info.plist || true
 cp $TMP_BACKUP/google-services.json android/app/google-services.json || true
-
-# Restaura a pasta prints
 if [ -d $TMP_BACKUP/prints ]; then
   mkdir -p prints
   cp -R $TMP_BACKUP/prints/* prints/
@@ -187,7 +169,7 @@ fi
 
 cd -
 
-# Copia tudo (inclusive arquivos ocultos) pro repositório principal
+# Copia pro projeto
 log "Copying updated template to main branch..."
 cp -a $WORK_DIR/. .
 
@@ -196,5 +178,5 @@ git add .
 git commit -m "chore(template): update project using latest template version and preserve customer configuration"
 git push origin main
 
-log "Template applied successfully! Main branch is now updated."
-log "Backup of previous version is stored in branch $BACKUP_BRANCH."
+log "✅ Template applied successfully!"
+log "📦 Backup branch created: $BACKUP_BRANCH"
