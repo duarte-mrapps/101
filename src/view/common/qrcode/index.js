@@ -34,7 +34,7 @@ const QrCode = () => {
 
   const getAdWithQrCode = async (qrCode) => {
     if (qrCode?.split(':')[0] == 'mobiapp') {
-      const ad = await GETONE(qrCode.replace('mobiapp:', ''))
+      const ad = await GETONE(null, qrCode.replace('mobiapp:', ''))
       if (ad) {
         navigation.goBack()
         setTimeout(() => {

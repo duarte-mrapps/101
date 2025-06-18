@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchViewFormatter.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchViewFormatter.kt
+index 037d165..6617897 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchViewFormatter.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchViewFormatter.kt
+@@ -48,8 +48,8 @@ class SearchViewFormatter(
+ 
+     fun setHeaderIconColor(headerIconColor: Int?) {
+         headerIconColor?.let {
++            searchIcon.setVisibility(View.GONE)
+             searchIcon.setColorFilter(it)
+-            searchCloseIcon.setColorFilter(it)
+         }
+     }
+ 

@@ -10,7 +10,7 @@ const convertSingleCode = (colorCode) => {
 
 class Helper {
   ToSign = (data) => {
-    return CryptoJS.SHA512(`com.mrapps.cardealer:sign-${data}`).toString();
+    return CryptoJS.SHA512(`com.mrapps.appdaloja:sign-${data}`).toString();
   }
 
   Encrypt = async (data) => {
