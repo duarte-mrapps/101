@@ -1,5 +1,5 @@
 import React, { Fragment, useContext, useEffect } from 'react';
-import { Appearance, DeviceEventEmitter, Platform, View, StatusBar, Dimensions, Linking, useColorScheme } from 'react-native';
+import { Appearance, DeviceEventEmitter, Platform, View, StatusBar, Dimensions, Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -33,8 +33,8 @@ import FastImage from 'react-native-fast-image';
 import Service from './view/common/service';
 import ServiceServices from './view/common/service/services';
 import SelectVehicle from './view/common/service/selectVehicle';
-import FipeTable from './view/common/service/fipe';
-import Fipe from './view/common/service/fipe/selectItem';
+import FipeTable from './view/common/service/fipeTable';
+import Fipe from './view/common/service/fipe';
 
 import Stores from './view/common/stores';
 import helper from './libs/helper';
@@ -43,7 +43,6 @@ import { OneSignal, NotificationWillDisplayEvent } from 'react-native-onesignal'
 
 
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
-import { DialogProvider } from './components/DialogAndroid';
 
 // todo: Begin Main
 const MainStack = (props) => {
@@ -301,6 +300,9 @@ const FipeTableStack = (props) => {
 const LoadingConfigStack = (props) => {
     useContext(GlobalContext);
     const Stack = createNativeStackNavigator();
+    const colors = useColors();
+
+    const config = Session.getConfig();
 
     return (
         <Stack.Navigator
@@ -316,6 +318,8 @@ const InitialQuestionsStack = (props) => {
     useContext(GlobalContext);
     const Stack = createNativeStackNavigator();
     const colors = useColors();
+
+    const config = Session.getConfig();
 
     return (
         <Stack.Navigator
@@ -390,33 +394,13 @@ const Tabs = (props) => {
         }
     }, [colors, theme]);
 
-    const canGoBack = () => {
-        if (navigation.canGoBack()) {
-            navigation.goBack();
-            canGoBack();
-        }
-    }
-
     const navigateHandleEvent = (e) => {
-        if (Platform.OS == 'android' && isTablet()) { navigation?.canGoBack() && navigation?.goBack(); }
-
-        if (isTablet() &&
-            (e.screen == 'MainTab'
-                || e.screen == 'SearchTab'
-                || e.screen == 'Favorites'
-                || e.screen == 'AboutUs'
-                || e.screen == 'AboutUsStores'
-                || e.screen == 'AccountSettings')
-        ) {
-            canGoBack();
-            navigation.setParams({ screen: e.screen, params: e.params });
-        } else {
-            navigation.navigate(e.screen, e.params);
-        }
+        if (Platform.OS == 'android' && isTablet()) { navigation?.canGoBack() && navigation?.goBack(null); }
+        navigation.navigate(e.screen, e.params);
     }
 
     const openPush = (data, title) => {
-        const ads = Session.getAds(store?._id)
+        const ads = Session.getAds(config?.unifiedAds ? 'all' : store?._id)
 
         if (!data?.length || !ads?.length) return
 
@@ -425,7 +409,7 @@ const Tabs = (props) => {
             .filter(Boolean)
 
         if (selectedAds.length === 1) {
-            navigation.navigate('Detail', { ad: selectedAds[0] })
+            navigation.push('Detail', { ad: selectedAds[0] })
         } else if (selectedAds.length > 1) {
             const adIds = selectedAds.map((ad) => ad.id)
             navigation.navigate('SearchHome', { type: 'ads', ads: adIds, title })
@@ -488,6 +472,7 @@ const Tabs = (props) => {
     }, [])
 
     useEffect(() => {
+
         return notifee.onForegroundEvent(({ type, detail }) => {
             switch (type) {
                 case EventType.DISMISSED:
@@ -507,6 +492,25 @@ const Tabs = (props) => {
             }
         });
     }, []);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     return (((!DeviceInfo.isTablet() && !Platform.isPad) || width < 768) || (Platform.OS == 'ios' && config?.bypassAppStore)) ? (
         <Tab.Navigator
@@ -551,18 +555,17 @@ const Tabs = (props) => {
                     headerShadowVisible: true,
                     tabBarStyle: { borderTopColor: colors.ios.line }
                 } : {
-                    tabBarShowLabel: config?.app?.tab?.tabBarShowLabel ?? false,
+                    tabBarShowLabel: false,
                     headerShown: false,
                     tabBarHideOnKeyboard: false,
                     tabBarStyle: { backgroundColor: colors.background, elevation: 0, borderTopWidth: 0 }
                 }
             } >
-            <Tab.Screen name="MainTab" component={MainStack} options={{ tabBarTestID: 'MainTab', tabBarAccessibilityLabel: "MainTab", lazy: true, tabBarIcon: ({ focused, color, size }) => { return (<Icon name={focused ? 'home' : 'home-outline'} type="material-community" size={Platform.OS == 'ios' ? (!IosOldVersion() ? 29 : 29) : 27} color={color}></Icon>) }, title: 'Início' }} />
-            <Tab.Screen name="SearchTab" component={SearchStack} options={{ tabBarTestID: 'SearchTab', tabBarAccessibilityLabel: "SearchTab", lazy: true, tabBarIcon: ({ focused, color, size }) => { return <Icon name={'search'} type={'ionicons'} color={color} size={Platform.OS == 'ios' ? 23 : 23}></Icon> }, title: 'Estoque' }} initialParams={props?.route?.params} />
+            <Tab.Screen name="MainTab" component={MainStack} options={{ tabBarTestID: 'MainTab', lazy: true, tabBarIcon: ({ focused, color, size }) => { return (<Icon name={focused ? 'home' : 'home-outline'} type="material-community" size={Platform.OS == 'ios' ? (!IosOldVersion() ? 29 : 29) : 27} color={color}></Icon>) }, title: 'Início' }} />
+            <Tab.Screen name="SearchTab" component={SearchStack} options={{ tabBarTestID: 'SearchTab', lazy: true, tabBarIcon: ({ focused, color, size }) => { return <Icon name={'search'} type={'ionicons'} color={color} size={Platform.OS == 'ios' ? 23 : 23}></Icon> }, title: 'Estoque' }} initialParams={props?.route?.params} />
             <Tab.Screen name="AccountTab" component={SettingsStack}
                 options={{
                     tabBarTestID: 'AccountTab',
-                    tabBarAccessibilityLabel: "AccountTab",
                     lazy: true,
                     title: (config?.app?.tab?.store != '' && config?.app?.tab?.store != null) ? config?.app?.tab?.store : 'Loja',
                     tabBarIcon: ({ focused, color, size }) => {
@@ -589,153 +592,143 @@ const Tabs = (props) => {
     );
 }
 
-const Render = (props) => {
-    useColorScheme();
-
+export default function Routes(props) {
     const { global, setGlobal, store } = useContext(GlobalContext);
     const Stack = createNativeStackNavigator();
     const colors = useColors();
     const width = Dimensions.get('window').width;
 
     return (
-        <Stack.Navigator
-            screenOptions={{
-                headerShown: false,
-                orientation: ((isTablet() || Platform.isPad) && width >= 768) ? 'all' : 'portrait',
-                gestureEnabled: true
-            }}
-            initialRouteName='Init'>
-            <Stack.Screen name="Init" component={global.firstTime ? (global.suggestStoreSelection ? StoresStack : LoadingConfigStack) : Tabs} options={{ title: store?.company ? store?.company : '...' }} />
-
-            <Stack.Group
-                screenOptions={{
-                    headerShown: true,
-                    presentation: Platform.OS == 'ios' ? 'modal' : 'card',
-                    headerTransparent: false,
-                    headerLargeTitle: !isTablet() && !IosOldVersion(),
-                    headerShadowVisible: !isTablet() && Platform.OS == 'ios',
-                    headerLargeTitleShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: (!isTablet() ? Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground : colors.background)
-                    },
-                    headerLargeStyle: {
-                        backgroundColor: colors.background
-                    }
-                }}>
-
-                <Stack.Screen name="FilterOptions" component={Search} options={{ title: 'Filtros', headerLargeTitle: false }} />
-
-                <Stack.Screen name="Service" component={ServiceStack} options={{ title: '', headerLargeTitle: false, headerShown: false, presentation: Platform.OS == 'ios' ? 'modal' : 'card', gestureEnabled: false }} initialParams={props?.route?.params} />
-                <Stack.Screen name="FipeTable" component={FipeTableStack} options={{ title: '', headerLargeTitle: false, headerShown: false, presentation: Platform.OS == 'ios' ? 'modal' : 'card', gestureEnabled: false }} initialParams={props?.route?.params} />
-
-                {Platform.OS == 'android' && <Stack.Screen name="SearchHome" component={SearchHomeStack} options={{ title: 'Estoque', headerShown: false, headerLargeTitle: false, headerBackTitle: 'Voltar' }} initialParams={{ ...props?.route?.params, nofilters: true }} />}
-            </Stack.Group>
-
-            <Stack.Screen name="Stores" component={StoresStack} options={{ headerShown: false, title: 'Lojas', presentation: Platform.OS == 'ios' ? 'modal' : 'card', headerLargeTitle: false, gestureEnabled: false }} />
-            <Stack.Screen name="StoresSearch" component={StoresStack} options={{ headerShown: false, title: 'Lojas', presentation: Platform.OS == 'ios' ? 'modal' : 'card', headerLargeTitle: false, gestureEnabled: false }} />
-
-            <Stack.Screen name="AdsFilter" component={AdsFilter}
-                options={{
-                    headerShown: true,
-                    title: 'Filtros',
-                    presentation: Platform.OS == 'ios' ? 'modal' : 'card',
-                    headerLargeTitle: false,
-                    headerShadowVisible: Platform.OS == 'ios',
-                    headerLargeTitleShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
-                    },
-                    headerLargeStyle: {
-                        backgroundColor: colors.background
-                    }
-                }}
-            />
-            <Stack.Screen name="AdsFilterItem" component={AdsFilterItem}
-                options={{
-                    headerShown: true,
-                    presentation: Platform.OS == 'ios' ? 'modal' : 'card',
-                    headerLargeTitle: false,
-                    headerShadowVisible: Platform.OS == 'ios',
-                    headerLargeTitleShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
-                    },
-                    headerLargeStyle: {
-                        backgroundColor: colors.background
-                    }
-                }} />
-
-            <Stack.Screen name="Detail" component={Detail}
-                options={{
-                    title: '',
-                    headerLargeTitle: false,
-                    headerShadowVisible: Platform.OS == 'ios',
-                    headerLargeTitleShadowVisible: false,
-                    headerStyle: {
-                        backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
-                    },
-                    headerLargeStyle: {
-                        backgroundColor: colors.background
-                    },
-                    headerShown: true
-                }} />
-
-            <Stack.Screen name="DetailVideo" component={DetailVideo}
-                options={{
-                    title: '',
-                    headerStyle: {
-                        backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
-                    },
-                    headerLargeTitle: false, gestureEnabled: true, headerShown: true
-                }} />
-
-            <Stack.Screen name="InitialQuestionsStack" component={InitialQuestionsStack}
-                options={{
-                    title: '',
-                    headerStyle: {
-                        backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
-                    },
-                    headerLargeTitle: false, gestureEnabled: false, headerShown: false, presentation: Platform.OS == 'ios' ? 'modal' : 'card'
-                }} />
-
-            <Stack.Screen name="QrCode"
-                component={QrCode}
-                options={{
-                    ...Platform.OS == 'ios' && { statusBarStyle: 'light' },
-                    title: null,
-                    headerTintColor: '#fff',
-                    presentation: "containedModal",
-                    animation: 'fade_from_bottom',
-                    headerShown: true,
-                    gestureEnabled: true,
-                    headerTransparent: true,
-                    headerStyle: { backgroundColor: 'transparent' },
-                    headerLargeStyle: { backgroundColor: 'transparent' }
-                }}
-            />
-
-            {Platform.OS == 'android' && <Stack.Screen name="AccountSettings" component={AccountSettingsStack} />}
-            {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="Favorites" component={FavoritesStack} />}
-            {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="AboutUs" component={AccountAboutUsStack} />}
-            {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="AboutUsStores" component={AccountAboutUsStoresStack} />}
-            {Platform.OS == 'android' && <Stack.Screen name="AboutUsSearch" component={AccountAboutUsStack} />}
-            {Platform.OS == 'android' && <Stack.Screen name="AboutUsStoresSearch" component={AccountAboutUsStoresStack} />}
-        </Stack.Navigator>
-    )
-}
-
-export default function Routes(props) {
-    useColorScheme();
-
-    return (
         <View style={{ flex: 1, zIndex: -1 }}>
-            <NavigationContainer>
-                <ActionSheetProvider>
-                    <DialogProvider>
-                        <Render {...props} />
-                    </DialogProvider>
-                </ActionSheetProvider>
-            </NavigationContainer>
+
+            <ActionSheetProvider>
+                <NavigationContainer>
+
+                    <Stack.Navigator
+                        screenOptions={{
+                            headerShown: false,
+                            orientation: ((isTablet() || Platform.isPad) && width >= 768) ? 'all' : 'portrait',
+                            gestureEnabled: true
+                        }}
+                        initialRouteName='Init'>
+                        <Stack.Screen name="Init" component={global.firstTime ? (global.suggestStoreSelection ? StoresStack : LoadingConfigStack) : Tabs} options={{ title: store?.company ? store?.company : '...' }} />
+
+                        <Stack.Group
+                            screenOptions={{
+                                headerShown: true,
+                                presentation: 'formSheet',
+                                headerTransparent: false,
+                                headerLargeTitle: !isTablet() && !IosOldVersion(),
+                                headerShadowVisible: !isTablet() && Platform.OS == 'ios',
+                                headerLargeTitleShadowVisible: false,
+                                headerStyle: {
+                                    backgroundColor: (!isTablet() ? Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground : colors.background)
+                                },
+                                headerLargeStyle: {
+                                    backgroundColor: colors.background
+                                }
+                            }}>
+
+                            <Stack.Screen name="FilterOptions" component={Search} options={{ title: 'Filtros', headerLargeTitle: false }} />
+
+                            <Stack.Screen name="Service" component={ServiceStack} options={{ title: '', headerLargeTitle: false, headerShown: false, presentation: 'formSheet', gestureEnabled: false }} initialParams={props?.route?.params} />
+                            <Stack.Screen name="FipeTable" component={FipeTableStack} options={{ title: '', headerLargeTitle: false, headerShown: false, presentation: 'formSheet', gestureEnabled: false }} initialParams={props?.route?.params} />
+
+                            {Platform.OS == 'android' && <Stack.Screen name="SearchHome" component={SearchHomeStack} options={{ title: 'Estoque', headerShown: false, headerLargeTitle: false, headerBackTitle: 'Voltar' }} initialParams={{ ...props?.route?.params, nofilters: true }} />}
+                        </Stack.Group>
+
+                        <Stack.Screen name="Stores" component={StoresStack} options={{ headerShown: false, title: 'Lojas', presentation: 'formSheet', headerLargeTitle: false, gestureEnabled: false }} />
+                        <Stack.Screen name="StoresSearch" component={StoresStack} options={{ headerShown: false, title: 'Lojas', presentation: 'formSheet', headerLargeTitle: false, gestureEnabled: false }} />
+
+                        <Stack.Screen name="AdsFilter" component={AdsFilter}
+                            options={{
+                                headerShown: true,
+                                title: 'Filtros',
+                                presentation: 'formSheet',
+                                headerLargeTitle: false,
+                                headerShadowVisible: Platform.OS == 'ios',
+                                headerLargeTitleShadowVisible: false,
+                                headerStyle: {
+                                    backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
+                                },
+                                headerLargeStyle: {
+                                    backgroundColor: colors.background
+                                }
+                            }}
+                        />
+                        <Stack.Screen name="AdsFilterItem" component={AdsFilterItem}
+                            options={{
+                                headerShown: true,
+                                presentation: 'formSheet',
+                                headerLargeTitle: false,
+                                headerShadowVisible: Platform.OS == 'ios',
+                                headerLargeTitleShadowVisible: false,
+                                headerStyle: {
+                                    backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
+                                },
+                                headerLargeStyle: {
+                                    backgroundColor: colors.background
+                                }
+                            }} />
+
+                        <Stack.Screen name="Detail" component={Detail}
+                            options={{
+                                title: '',
+                                headerLargeTitle: false,
+                                headerShadowVisible: Platform.OS == 'ios',
+                                headerLargeTitleShadowVisible: false,
+                                headerStyle: {
+                                    backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
+                                },
+                                headerLargeStyle: {
+                                    backgroundColor: colors.background
+                                },
+                                headerShown: true
+                            }} />
+
+                        <Stack.Screen name="DetailVideo" component={DetailVideo}
+                            options={{
+                                title: '',
+                                headerStyle: {
+                                    backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
+                                },
+                                headerLargeTitle: false, gestureEnabled: true, headerShown: true
+                            }} />
+
+                        <Stack.Screen name="InitialQuestionsStack" component={InitialQuestionsStack}
+                            options={{
+                                title: '',
+                                headerStyle: {
+                                    backgroundColor: Platform.OS == 'ios' ? colors.ios.headerBackground : colors.android.headerBackground
+                                },
+                                headerLargeTitle: false, gestureEnabled: false, headerShown: false, presentation: 'formSheet'
+                            }} />
+
+                        <Stack.Screen name="QrCode"
+                            component={QrCode}
+                            options={{
+                                ...Platform.OS == 'ios' && { statusBarStyle: 'light' },
+                                title: null,
+                                headerTintColor: '#fff',
+                                presentation: "formSheet",
+                                animation: 'fade_from_bottom',
+                                headerShown: true,
+                                gestureEnabled: true,
+                                headerTransparent: true,
+                                headerStyle: { backgroundColor: 'transparent' },
+                                headerLargeStyle: { backgroundColor: 'transparent' }
+                            }}
+                        />
+
+                        {Platform.OS == 'android' && <Stack.Screen name="AccountSettings" component={AccountSettingsStack} />}
+                        {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="Favorites" component={FavoritesStack} />}
+                        {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="AboutUs" component={AccountAboutUsStack} />}
+                        {Platform.OS == 'android' && (!Platform.isPad && !isTablet()) && <Stack.Screen name="AboutUsStores" component={AccountAboutUsStoresStack} />}
+                        {Platform.OS == 'android' && <Stack.Screen name="AboutUsSearch" component={AccountAboutUsStack} />}
+                        {Platform.OS == 'android' && <Stack.Screen name="AboutUsStoresSearch" component={AccountAboutUsStoresStack} />}
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </ActionSheetProvider>
         </View>
     );
 }

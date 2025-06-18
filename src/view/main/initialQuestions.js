@@ -27,7 +27,7 @@ const InitialQuestions = (props) => {
     const theme = Appearance.getColorScheme();
 
     const config = Session.getConfig();
-    const stores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0));
+    const stores = config?.stores?.filter((store) => store?.services?.length > 1);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -54,7 +54,7 @@ const InitialQuestions = (props) => {
 
     useEffect(() => {
         if (Platform.OS == 'android') {
-            StatusBar.setBackgroundColor(colors.background, true);
+            StatusBar.setBackgroundColor(theme == 'dark' ? '#000' : colors.background, true);
             StatusBar.setBarStyle(theme == 'dark' ? 'light-content' : 'dark-content', true);
 
             let soft = ExtraDimensions.getIsSoftMenuBar();
