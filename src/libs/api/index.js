@@ -6,7 +6,6 @@ const { default: axios } = require("axios");
 
 const timestamp = new Date().getTime();
 const configUrl = `https://mrapps.s3.amazonaws.com/accounts/${Constants.ACCOUNT_ID}/config.json?timestamp=${timestamp}`;
-const adsUrl = `https://mrapps.s3.amazonaws.com/accounts/${Constants.ACCOUNT_ID}/ads.json?timestamp=${timestamp}`;
 
 export const getConfig = async (setGlobal, setStore) => {
   const config = Session.getConfig();
@@ -88,24 +87,10 @@ export const getConfig = async (setGlobal, setStore) => {
   }
 }
 
-export const getMirrorAds = async (storeId = null) => {
-  try {
-    const response = await axios.get(adsUrl)
-    if (response?.status == 200) {
-      const ads = response?.data?.filter(ad => { return (ad?.store == storeId || storeId == null) });
-      return ads;
-    } else {
-      return null;
-    }
-  } catch {
-    return null;
-  }
-}
-
 const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, order = null, setGlobal = null, queryClient = null) => {
   const config = Session.getConfig();
   const store = Session.getStore();
-  let ads = Session.getAds(store?._id);
+  const ads = Session.getAds(store?._id);
   const updatedAt = Session.getAdsUpdatedAt(store?._id);
 
   let refresh = false;
@@ -123,8 +108,7 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
     } else {
       list = list?.filter((item) => {
         return (
-          (!filter?.store?._id || item?.store == filter?.store?._id)
-          && (!filter?.type || (item?.type == filter?.type))
+          (!filter?.type || (item?.type == filter?.type))
           && (!filter?.condition ||
             (filter?.condition == 'Novos / Seminovos' && (!item?.isZeroKm || item?.isZeroKm)) ||
             (filter?.condition == 'Novos' && item?.isZeroKm) ||
@@ -208,8 +192,8 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
           if (decryptedData) {
             const parseData = JSON.parse(decryptedData);
             if (parseData?.status == 200) {
-              refresh = new Date(parseData?.updatedAt) > new Date(updatedAt);
-              refresh && Session.setAdsUpdatedAt(parseData?.updatedAt, store?._id);
+              refresh = parseData?.updatedAt != updatedAt;
+              refresh && Session.setAdsUpdatedAt(updatedAt, store?._id);
             }
           }
         }
@@ -217,6 +201,7 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
 
       if (refresh) {
         const query = { account: config?._id, store: store?._id };
+
         let data = CryptoJS.TripleDES.encrypt(JSON.stringify(query), Constants.SECRET_KEY).toString();
         data = encodeURIComponent(data);
 
@@ -230,11 +215,11 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
 
         const response = await axios.request(request)
         if (response?.data?.status == 200) {
-          const favoriteExists = ads?.filter((item) => item?.favorite == true);
+          const favoriteExists = ads?.filter((item) => (item?.favorite == true));
           const data = response?.data?.ads ?? [];
 
           data?.map((ad) => {
-            const exists = favoriteExists?.findIndex((item) => (item?.id == ad?.id && item?.store == ad?.store));
+            const exists = favoriteExists?.findIndex((item) => (item?.id == ad?.id));
             if (exists != null && exists != -1) { ad.favorite = true; }
 
             const price = parseFloat(ad?.changed?.price);
@@ -255,38 +240,13 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
           return paginatedData
         }
       } else {
+
         const paginatedData = paginate(ads)
         const statisticIds = paginatedData.data?.map(ad => ad?.id)
         if (statisticIds?.length >= 1) STATISTICS(store, null, 'print', null, statisticIds)
         return paginatedData
       }
     } catch {
-      if (!ads) {
-        let mirrorAds = [];
-        ads = [];
-
-        let defaultStore;
-        const joinStores = [];
-
-        const stores = config?.stores?.filter(item => (item?.hidden != true && item?.virtual == false && item?.services?.length > 0));
-        defaultStore = stores?.find((item) => item?._id == config?.defaultStore);
-        defaultStore && joinStores.push(defaultStore);
-
-        let othersStores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0 && store?._id != config?.defaultStore));
-        othersStores?.sort((a, b) => a?.description?.localeCompare(b?.description));
-        othersStores && joinStores.push(...othersStores);
-
-        if (config?.unifiedAds) {
-          let defaultStore = joinStores?.find((item) => item?._id == config?.unifiedAdsStore);
-
-          if ((defaultStore?._id == store?._id) || !config?.unifiedAdsStore) { mirrorAds = await getMirrorAds(null); }
-          else { mirrorAds = await getMirrorAds(store?._id); }
-        }
-        else { mirrorAds = await getMirrorAds(store?._id); }
-
-        mirrorAds && ads.push(...mirrorAds);
-        Session.setAds(ads, store?._id);
-      }
 
       const paginatedData = paginate(ads)
       const statisticIds = paginatedData.data?.map(ad => ad?.id)
@@ -298,57 +258,19 @@ const GET = async (page = 0, itemsPerPage = 10, search = null, filter = null, or
   }
 }
 
-// export const GETONE = (store, id = null) => {
-//   const config = Session.getConfig();
-//   const getStore = Session.getStore();
-//   const ads = Session.getAds(getStore?._id);
-
-//   const storeId = store ?? getStore?._id;
-  
-//   if (config?.status == 'active') {
-//     try {
-//       let list = [...ads];
-//       const ad = list?.find((ad) => { return ad?.id == id && ad?.store == storeId && !ad?.changed?.hidden; });
-//       const price = parseFloat(ad?.changed?.price);
-//       if (price) { ad.price = price; }
-
-//       return ad ?? null;
-//     } catch {
-//       return null
-//     }
-//   } else {
-//     return []
-//   }
-// }
-
-export const GETONE = (store, id = null) => {
-  const config = Session.getConfig()
-  const getStore = Session.getStore()
-  const ads = Session.getAds(getStore?._id)
-
-  const storeId = store ?? getStore?._id
+export const GETONE = (id = null) => {
+  const config = Session.getConfig();
+  const store = Session.getStore();
+  const ads = Session.getAds(store?._id);
 
   if (config?.status == 'active') {
     try {
-      let list = [...ads]
+      let list = [...ads];
+      const ad = list?.find((ad) => { return ad?.id == id && !ad?.changed?.hidden; });
+      const price = parseFloat(ad?.changed?.price);
+      if (price) { ad.price = price; }
 
-      let ad
-      if (storeId == config?.unifiedAdsStore) {
-        ad = list?.find((ad) => {
-          return ad?.id == id && !ad?.changed?.hidden
-        })
-      } else {
-        ad = list?.find((ad) => {
-          return ad?.id == id && ad?.store == storeId && !ad?.changed?.hidden
-        })
-      }
-
-      const price = parseFloat(ad?.changed?.price)
-      if (price) {
-        ad.price = price
-      }
-
-      return ad ?? null
+      return ad ?? null;
     } catch {
       return null
     }

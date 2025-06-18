@@ -21,7 +21,7 @@ const Favorites = () => {
   const theme = Appearance.getColorScheme();
 
   const config = Session.getConfig();
-  const ads = Session.getAds(store?._id);
+  const ads = Session.getAds(config?.unifiedAds ? 'all' : store?._id);
 
   const [filteredAdsData, setFilteredAdsData] = useState(ads?.filter(ad => ad?.favorite && ad) ?? []);
 
@@ -29,7 +29,7 @@ const Favorites = () => {
     setTimeout(() => {
       const ads = [];
 
-      const data = Session.getAds(store?._id);
+      const data = Session.getAds(config?.unifiedAds ? 'all' : store?._id);
       const filtered = data?.filter(ad => ad?.favorite && !ad?.changed?.hidden && ad);
 
       filtered?.filter((ad) => { return ad?.changed?.price != null; })
@@ -124,13 +124,7 @@ const Favorites = () => {
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                           <Text style={[DescriptionFontSize(), { color: colors.text }]} numberOfLines={1}>{item?.manufactureYear}/{item?.modelYear} {helper.getFirstLetterCapitalized(item?.fuel)} {helper.getFirstLetterCapitalized(item?.transmission)} {new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item?.mileage)}</Text>
                         </View>
-                        <Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price) : 'Consulte'}</Text>
-                        {config?.unifiedAds &&
-                          <View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
-                            <Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
-                            <Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
-                          </View>
-                        }
+                        <Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price)}</Text>
                       </View>
                     </>,
                   padding: false,
@@ -149,16 +143,18 @@ const Favorites = () => {
 
               if (list) {
                 const vehicle = { ...data }
-                navigation.navigate(backScreen,
-                  { vehicle },
-                  { merge: true })
+                navigation.navigate({
+                  name: backScreen,
+                  params: { vehicle },
+                  merge: true
+                })
               } else {
                 navigation.navigate('Detail', { ad: data, title: 'Favoritos', backScreen: 'Favorites' })
               }
             }
           }}
           marginTop={false}
-          expanded={Platform.OS == 'ios'}
+          expanded
           index={index} count={filteredAdsData.length}
         />
       </>
@@ -171,7 +167,6 @@ const Favorites = () => {
       keyExtractor={(item, index) => String(index)}
       renderItem={renderItem}
       ItemSeparatorComponent={(props) => <Separator props={props} start={Platform.OS == 'ios' ? 75 : 110} />}
-      {...Platform.OS == 'ios' && { style: { backgroundColor: colors.ios.item } }}
       ListEmptyComponent={
         <>
           <Divider />
