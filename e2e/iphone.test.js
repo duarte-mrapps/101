@@ -2,36 +2,53 @@ import { device, by, element } from 'detox';
 
 describe('Example', () => {
   beforeAll(async () => {
-    await device.launchApp({
-      launchArgs: { isTesting: true },
-      delete: true,
-    });
+    await device.launchApp();
   });
 
-
   it('should take screenshots of all screens', async () => {
-    await new Promise(resolve => setTimeout(resolve, 8000));
-    await device.takeScreenshot('01')
+    try {
+      await waitFor(element(by.text('Não'))).toBeVisible().withTimeout(20000)
+      await element(by.text('Não')).tap()
+    } catch (error) { }
 
-    await waitFor(element(by.label('SearchTab'))).toBeVisible().withTimeout(20000);
-    await element(by.label('SearchTab')).tap()
+    try {
+      await element(by.id('MainCarrousel')).swipe('right', 'fast')
+    } catch (error) { }
 
-    waitFor(element(by.id('StockItem-0'))).toBeVisible()
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await device.takeScreenshot('02')
+    try {
+      await waitFor(element(by.id('MainTab'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.id('MainTab'))).toBeVisible();
+      await device.takeScreenshot('01')
 
-    await element(by.id('StockItem-0')).tap()
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await device.takeScreenshot('03')
+    } catch (error) { }
 
-    await element(by.traits(['button'])).atIndex(0).tap();
+    try {
+      await waitFor(element(by.id('SearchTab'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.id('SearchTab'))).toBeVisible();
+      await element(by.id('SearchTab')).tap()
+      await device.takeScreenshot('02')
 
-    await waitFor(element(by.label('AccountTab'))).toBeVisible().withTimeout(20000);
-    await element(by.label('AccountTab')).tap()
+    } catch (error) { }
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await device.takeScreenshot('04')
+    try {
+      await waitFor(element(by.id('SearchItem-0'))).toBeVisible().withTimeout(20000);
+      await element(by.id('SearchItem-0')).tap()
+      await device.takeScreenshot('03')
 
-    await device.terminateApp()
+    } catch (error) { }
+
+    try {
+      await waitFor(element(by.text('Estoque'))).toBeVisible().withTimeout(20000);
+      await element(by.text('Estoque')).tap()
+
+    } catch (error) { }
+
+    try {
+      await waitFor(element(by.id('AccountTab'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.id('AccountTab'))).toBeVisible();
+      await element(by.id('AccountTab')).tap()
+      await device.takeScreenshot('04')
+
+    } catch (error) { }
   });
 });

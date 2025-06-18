@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ANDROID_TEST_BUILD_PATH="./android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
-IOS_TEST_BUILD_PATH="./ios/build/Build/Products/Debug-iphonesimulator/appdaloja.app"
+IOS_TEST_BUILD_PATH="./ios/build/Build/Products/Debug-iphonesimulator/cardealer.app"
 
 iphone_device_name="iPhone 16 Pro"
 iphone_device_id=$(xcrun simctl list devices | grep "$iphone_device_name" | grep -oE '\([A-F0-9\-]+\)' | tr -d '()')
@@ -28,7 +28,7 @@ build_android() {
 
 build_ios() {
   echo "Verificando se o build de teste do iOS existe..."
-  
+
   xcrun simctl boot $iphone_device_id
   xcrun simctl boot $iPad_device_id
 

@@ -1,5 +1,4 @@
 apply plugin: "com.android.application"
-apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: "com.google.gms.google-services"
 
@@ -12,14 +11,14 @@ import org.apache.tools.ant.taskdefs.condition.Os
  */
 react {
     /* Folders */
-    //   The root of your project, i.e. where "package.json" lives. Default is '../..'
-    // root = file("../../")
-    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
-    // reactNativeDir = file("../../node_modules/react-native")
-    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
-    // codegenDir = file("../../node_modules/@react-native/codegen")
-    //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
-    // cliFile = file("../../node_modules/react-native/cli.js")
+    //   The root of your project, i.e. where "package.json" lives. Default is '..'
+    // root = file("../")
+    //   The folder where the react-native NPM package is. Default is ../node_modules/react-native
+    // reactNativeDir = file("../node_modules/react-native")
+    //   The folder where the react-native Codegen package is. Default is ../node_modules/@react-native/codegen
+    // codegenDir = file("../node_modules/@react-native/codegen")
+    //   The cli.js file which is the React Native CLI entrypoint. Default is ../node_modules/react-native/cli.js
+    // cliFile = file("../node_modules/react-native/cli.js")
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
@@ -53,9 +52,6 @@ react {
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
-
-    /* Autolinking */
-    autolinkLibrariesWithApp()
 }
 
 /**
@@ -78,10 +74,10 @@ def jscFlavor = 'org.webkit:android-jsc:+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.appdaloja"
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    namespace "com.mrapps.cardealer"
     defaultConfig {
         applicationId "com.l101veiculos.android"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -123,7 +119,7 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             shrinkResources enableProguardInReleaseBuilds
             multiDexKeepFile file('multidex-config.txt')
-            proguardFile "${rootProject.projectDir}/../node_modules/detox/android/detox/proguard-rules-app.pro"
+             proguardFile "${rootProject.projectDir}/../node_modules/detox/android/detox/proguard-rules-app.pro"
         }
     }
     packagingOptions {
@@ -160,6 +156,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
 
     implementation "com.google.android.gms:play-services-base:10.0.1"
+    implementation "com.google.android.gms:play-services-maps:10.0.1"
     implementation "com.google.android.gms:play-services-gcm:9.8.0"
     implementation "com.google.android.gms:play-services-location:21.0.1"
      
@@ -171,4 +168,5 @@ dependencies {
     androidTestImplementation 'junit:junit:4.12'
 }
 
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
