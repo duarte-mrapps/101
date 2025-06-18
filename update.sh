@@ -7,7 +7,7 @@ BACKUP_BRANCH="template-cardealer"
 TEMPLATE_REPO="https://github.com/duarte-mrapps/template-teste.git"
 
 log() {
-  echo -e "${BLUE}➔ $1${NC}"
+  echo -e "\033[1;34m➔ $1\033[0m"
 }
 
 # Valida se é um repositório Git
@@ -92,6 +92,16 @@ ONESIGNAL_APP_ID=$(grep "ONESIGNAL_APP_ID" $SESSION_FILE | head -n 1 | sed -E "s
 log "ACCOUNT_ID: $ACCOUNT_ID"
 log "ONESIGNAL_APP_ID: $ONESIGNAL_APP_ID"
 
+# Extrai cores do storyboard antigo
+OLD_STORYBOARD=$(find ios -name "LaunchScreen.storyboard" | grep -v appdaloja | head -n 1)
+RED=$(grep -o 'red="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
+GREEN=$(grep -o 'green="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
+BLUE=$(grep -o 'blue="[^"]*"' "$OLD_STORYBOARD" | head -n1 | cut -d'"' -f2)
+
+log "RED: $RED"
+log "GREEN: $GREEN"
+log "BLUE: $BLUE"
+
 # Faz backup dos assets
 log "Backing up assets..."
 TMP_BACKUP=$(mktemp -d)
@@ -128,7 +138,7 @@ rm -rf $WORK_DIR/.git
 
 # Substitui placeholders
 cd $WORK_DIR
-for placeholder in "APPLICATION_ID" "BUNDLE_ID" "ACCOUNT_ID" "ONESIGNAL_APP_ID" "APP_NAME"
+for placeholder in "APPLICATION_ID" "BUNDLE_ID" "ACCOUNT_ID" "ONESIGNAL_APP_ID" "APP_NAME" "RED" "GREEN" "BLUE"
 do
   value=$(eval echo \$$placeholder)
   log "Replacing {{$placeholder}}..."
