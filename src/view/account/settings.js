@@ -19,7 +19,7 @@ const AccountSettings = (props) => {
     const [loadingPermission, setLoadingPermission] = useState(null);
 
     const config = Session.getConfig();
-    const stores = config?.stores?.filter((store) => store?.hidden != true);
+    const stores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0));
 
     useEffect(() => {
         Session.setGlobal({ ...global });

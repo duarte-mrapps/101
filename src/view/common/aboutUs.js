@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Text, View, Linking, Platform, LayoutAnimation, FlatList, Appearance, Alert } from 'react-native';
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Text, View, Linking, Platform, LayoutAnimation, FlatList, Appearance, Alert, Image } from 'react-native';
 import { Divider, useColors, DescriptionFontSize, List, Icon, Button, MediumFontSize } from 'react-native-ui-devkit';
 import { HeaderOptions } from '@react-navigation/elements';
 import { useActionSheet } from '@expo/react-native-action-sheet';
@@ -12,10 +12,10 @@ import { GlobalContext } from '../../libs/globalContext';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDialog } from '../../components/DialogAndroid';
 import { STORES } from '../../libs/api';
-import helper from '../../libs/helper';
 import { NoStoreYet } from '../../components/noDataYet';
-import Session from '../../libs/session';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
+import Session from '../../libs/session';
+import helper from '../../libs/helper';
 
 const AboutUs = () => {
   const { global, store } = useContext(GlobalContext);
@@ -27,6 +27,13 @@ const AboutUs = () => {
   const searcher = route?.params?.searcher;
   let config = Session.getConfig();
   const stores = config?.stores?.filter((store) => store?.hidden != true);
+
+
+  /** @type { React.MutableRefObject<import('@react-navigation/elements').HeaderSearchBarRef> } */
+  const searchBarRef = useRef()
+
+
+
 
   const [seeMore, setSeeMore] = useState(false);
   const [search, setSearch] = useState(null);
@@ -55,14 +62,13 @@ const AboutUs = () => {
     ),
     ...(Platform.OS == 'ios' || searcher) && !(config?.unifiedAds && stores?.length == 1) && {
       headerSearchBarOptions: {
+        ref: searchBarRef,
         placeholder: 'Pesquisar',
         cancelButtonText: 'Cancelar',
         autoCapitalize: 'none',
         textColor: colors.text,
         headerIconColor: colors.background,
-        headerCloseIconColor: colors.secondary,
         hintTextColor: colors.secondary,
-        ...(searcher && { autoFocus: true }),
         hideWhenScrolling: false,
         obscureBackground: false,
         onChangeText: (e) => { setSearch(e.nativeEvent.text); setLoading(true) },
@@ -92,7 +98,7 @@ const AboutUs = () => {
 
   useEffect(() => {
     if (store) {
-      const screen = `${store?.company} - About Us`;
+      const screen = `${store?.company} - Sobre-nós`;
       analytics().logScreenView({
         screen_name: screen,
         screen_class: screen,
@@ -105,6 +111,12 @@ const AboutUs = () => {
     const queryKey = 'StoreFilters';
     queryClient.removeQueries({ queryKey, exact: true })
   }, [debounceValue])
+
+  useEffect(() => {
+    if (searcher) {
+      setTimeout(() => { searchBarRef.current?.focus() }, 500)
+    }
+  }, [searcher])
 
   const { data: queryData, isFetching, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
     queryKey: ['StoreFilters', config, global.isConnected, store, debounceValue],
@@ -217,9 +229,10 @@ const AboutUs = () => {
           })
 
         if (item?.sms?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_sms', {
-            [analyticsStore]: item?.telegram?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            sms: item?.sms?.formatted
           });
         }
       }
@@ -241,9 +254,10 @@ const AboutUs = () => {
           })
 
         if (item?.whatsapp?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_whatsapp', {
-            [analyticsStore]: item?.whatsapp?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            whatsapp: item?.whatsapp?.formatted
           });
         }
       }
@@ -266,9 +280,10 @@ const AboutUs = () => {
           })
 
         if (item?.telegram?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_telegram', {
-            [analyticsStore]: item?.telegram?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            telegram: item?.telegram?.formatted
           });
         }
       }
@@ -282,10 +297,12 @@ const AboutUs = () => {
           item?.frontage && {
             component:
               <View style={{ width: 'auto', aspectRatio: 480 / 280, alignItems: 'center', justifyContent: 'center' }}>
-                <FastImage
+                <Image
+                  testID={`AboutUsImage-${index}`}
                   source={{ uri: item?.frontage }}
-                  style={{ width: '100%', height: '100%', alignSelf: 'center', borderRadius: 0 }}>
-                </FastImage>
+                  style={{ width: '100%', height: '100%', alignSelf: 'center', borderRadius: 0 }}
+                >
+                </Image>
               </View >,
             padding: false
           },
@@ -404,7 +421,7 @@ const AboutUs = () => {
                           <List
                             key={index}
                             data={[
-                              { title: openingHours?.title, description: helper.getTodayHours(openingHours), subdescription: helper.getTodayHours(openingHours) },
+                              { title: openingHours?.title, description: helper.getAboutUsTodayHours(openingHours), subdescription: helper.getAboutUsTodayHours(openingHours) },
                               openingHours?.phone && { title: `Ligar ${openingHours?.phone?.formatted}`, color: { title: colors.primary }, chevron: false, delay: false, onPress: () => { Linking.openURL(Platform.OS == 'ios' ? openingHours?.phone?.ios : openingHours?.phone?.android) } },
                               { title: 'Domingo', description: (openingHours?.sunday?.from && openingHours?.sunday?.from) ? `${openingHours?.sunday?.from} às ${openingHours?.sunday?.to}` : 'Fechado', color: { title: helper.getColorByDay(0, colors) } },
                               { title: 'Segunda-feira', description: (openingHours?.monday?.from && openingHours?.monday?.from) ? `${openingHours?.monday?.from} às ${openingHours?.monday?.to}` : 'Fechado', color: { title: helper.getColorByDay(1, colors) } },
@@ -432,7 +449,6 @@ const AboutUs = () => {
   }
 
   return (
-    // <View style={{ flex: 1 }}><Text>Algo</Text></View>
     <FlatList
       keyExtractor={(item, index) => String(index)}
       {...!(config?.unifiedAds && stores?.length == 1) && {
@@ -447,6 +463,7 @@ const AboutUs = () => {
         }
       }}
 
+      testID="AboutUsScreen"
       windowSize={21}
       contentInsetAdjustmentBehavior={'automatic'}
       keyboardDismissMode={'on-drag'}
@@ -492,9 +509,69 @@ const AboutUs = () => {
             <>
               <List data={[
                 config?.socialNetworks?.instagram && { icon: helper.getIconBySocialnetwork('instagram'), title: 'Instagram', description: Platform.OS == 'android' && config?.socialNetworks?.instagram, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.instagram}`); } },
-                config?.socialNetworks?.facebook && { icon: helper.getIconBySocialnetwork('facebook'), title: 'facebook', description: Platform.OS == 'android' && config?.socialNetworks?.facebook, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.facebook}`); } },
+                config?.socialNetworks?.facebook && { icon: helper.getIconBySocialnetwork('facebook'), title: 'Facebook', description: Platform.OS == 'android' && config?.socialNetworks?.facebook, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.facebook}`); } },
                 config?.socialNetworks?.youtube && { icon: helper.getIconBySocialnetwork('youtube'), title: 'YouTube', description: Platform.OS == 'android' && config?.socialNetworks?.youtube, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.youtube}`); } },
-                config?.socialNetworks?.twitter && { icon: helper.getIconBySocialnetwork('twitter'), title: 'twitter', description: Platform.OS == 'android' && config?.socialNetworks?.twitter, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.twitter}`); } },
+                config?.socialNetworks?.twitter && { icon: helper.getIconBySocialnetwork('twitter'), title: 'Twitter', description: Platform.OS == 'android' && config?.socialNetworks?.twitter, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.twitter}`); } },
+
+                config?.socialNetworks?.threads && {
+                  icon: {
+                    component: (
+                      <View style={{
+                        backgroundColor: '#000',
+                        height: 30,
+                        width: 30,
+                        marginRight: 15,
+                        borderRadius: Platform.OS == 'ios' ? 6 : 12,
+                        justifyContent: 'center'
+                      }}
+                      >
+                        <Image
+                          style={{ height: 17 }}
+                          resizeMode='contain'
+                          source={{ uri: Image.resolveAssetSource(require('../../assets/icons/threads.png')).uri }}
+                        />
+                      </View>
+                    )
+                  },
+
+                  title: 'Threads',
+                  description: Platform.OS == 'android' && config?.socialNetworks?.threads,
+                  color: { title: colors.primary },
+                  onPress: () => {
+                    Linking.openURL(`${config?.socialNetworks?.threads}`);
+                  }
+                },
+
+                config?.socialNetworks?.kwai && {
+                  icon: {
+                    component: (
+                      <View
+                        style={{
+                          backgroundColor: '#FF4905',
+                          height: 30,
+                          width: 30,
+                          marginRight: 15,
+                          borderRadius: Platform.OS == 'ios' ? 6 : 12,
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Image
+                          style={{ height: 17 }}
+                          resizeMode='contain'
+                          source={{ uri: Image.resolveAssetSource(require('../../assets/icons/kwai.png')).uri }}
+                        />
+                      </View>
+                    )
+                  },
+
+                  title: 'Kwai',
+                  description: Platform.OS == 'android' && config?.socialNetworks?.kwai,
+                  color: { title: colors.primary },
+                  onPress: () => {
+                    Linking.openURL(`${config?.socialNetworks?.kwai}`);
+                  }
+                },
+
                 config?.socialNetworks?.linkedin && { icon: helper.getIconBySocialnetwork('linkedin'), title: 'LinkedIn', description: Platform.OS == 'android' && config?.socialNetworks?.linkedin, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.linkedin}`); } },
                 config?.socialNetworks?.tiktok && { icon: helper.getIconBySocialnetwork('tiktok'), title: 'TikTok', description: Platform.OS == 'android' && config?.socialNetworks?.tiktok, color: { title: colors.primary }, onPress: () => { Linking.openURL(`${config?.socialNetworks?.tiktok}`); } },
                 config?.email && { title: config?.email, color: { title: colors.primary }, delay: false, chevron: false, onPress: () => { Linking.openURL(`mailto:${config.email}`); } },
@@ -516,7 +593,6 @@ const AboutUs = () => {
               </View>
             </>
           }
-
           <Divider />
         </>
       )}

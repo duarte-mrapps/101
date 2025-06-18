@@ -14,6 +14,7 @@ const SelectVehicle = () => {
   const route = useRoute()
   const backScreen = route.params?.backScreen
   const vehicleParams = route.params?.vehicleParams
+
   const colors = useColors()
   const insets = useSafeAreaInsets()
 
@@ -25,21 +26,18 @@ const SelectVehicle = () => {
   })
 
   useLayoutEffect(() => {
+
     navigation.setOptions({
       title: '',
       headerRight: () =>
         <Button link data={{
           title: 'Concluir', disabled: !data?.year?._id,
           onPress: () => {
-            navigation.navigate({
-              name: backScreen,
-              params: { vehicle: { type: (vehicleType + 1), brand: data?.brand?.label, model: data?.model?.label, year: data?.year?.label }, vehicleParams: { ...data, type: vehicleType } },
-              merge: true
-            })
+            navigation?.popTo(backScreen, { vehicle: { type: (vehicleType + 1), brand: data?.brand?.label, model: data?.model?.label, year: data?.year?.label }, vehicleParams: { ...data, type: vehicleType } })
           }
         }} />
     })
-  }, [navigation, data])
+  }, [navigation, data, backScreen])
 
   useEffect(() => {
     const data = route.params?.data
@@ -101,20 +99,16 @@ const SelectVehicle = () => {
         separators={false}
       />
       <List
-
         data={[
           {
             title: 'Marca',
             description: data?.brand?.label ?? 'Selecionar',
             onPress: () => {
-              navigation.navigate({
-                name: 'Fipe',
-                params: {
-                  field: 'brand',
-                  backScreen: "SelectVehicle",
-                  fieldValue: {},
-                  vehicleType: (vehicleType + 1)
-                }
+              navigation.navigate('Fipe', {
+                field: 'brand',
+                backScreen: "SelectVehicle",
+                fieldValue: {},
+                vehicleType: (vehicleType + 1)
               })
             }
           },
@@ -123,15 +117,13 @@ const SelectVehicle = () => {
             description: data?.model?.label ?? 'Selecionar',
             disabled: !data?.brand?._id,
             onPress: () => {
-              navigation.navigate({
-                name: 'Fipe',
-                params: {
+              navigation.navigate('Fipe',
+                {
                   field: 'model',
                   backScreen: "SelectVehicle",
                   fieldValue: { brand: data?.brand },
                   vehicleType: (vehicleType + 1)
-                }
-              })
+                })
             }
           },
           {
@@ -139,15 +131,13 @@ const SelectVehicle = () => {
             description: data?.year?.label ?? 'Selecionar',
             disabled: !data?.model?._id,
             onPress: () => {
-              navigation.navigate({
-                name: 'Fipe',
-                params: {
+              navigation.navigate('Fipe',
+                {
                   field: 'year',
                   backScreen: "SelectVehicle",
                   fieldValue: { brand: data?.brand, model: data?.model },
                   vehicleType: (vehicleType + 1)
-                }
-              })
+                })
             }
           }
         ]}

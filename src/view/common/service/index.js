@@ -39,7 +39,6 @@ const Service = () => {
 
   const colors = useColors()
   const insets = useSafeAreaInsets()
-  const analyticsStore = helper.formatToAnalytics(store?.company);
 
   const imageSize = Platform.OS == 'ios' ? 62 : 72;
 
@@ -516,7 +515,7 @@ const Service = () => {
                   data.refs.mileage?._inputElement?.blur?.();
 
                   setTimeout(() => {
-                    navigation.navigate(params?.ad ? 'Search' : 'SelectVehicle', { backScreen: 'ServiceStack', vehicleParams: data?.vehicleParams, merge: true })
+                    navigation.navigate(params?.ad ? 'Search' : 'SelectVehicle', { backScreen: 'ServiceStack', vehicleParams: data?.vehicleParams })
                   }, 10);
                 }
               }
@@ -557,15 +556,12 @@ const Service = () => {
                 data.refs.mileage?._inputElement?.blur?.();
 
                 setTimeout(() => {
-                  navigation.navigate({
-                    name: 'ServiceServices',
-                    params: {
-                      title: 'Serviço(s)',
-                      options: service?.service?.options,
-                      multipleSelection: service?.service?.multipleSelection,
-                      backScreen: 'ServiceStack',
-                      serviceParams: data?.serviceParams ?? []
-                    }
+                  navigation.navigate('ServiceServices', {
+                    title: 'Serviço(s)',
+                    options: service?.service?.options,
+                    multipleSelection: service?.service?.multipleSelection,
+                    backScreen: 'ServiceStack',
+                    serviceParams: data?.serviceParams ?? []
                   })
                 }, 10);
               }
@@ -583,16 +579,14 @@ const Service = () => {
                 data.refs.mileage?._inputElement?.blur?.();
 
                 setTimeout(() => {
-                  navigation.navigate({
-                    name: 'ServiceServices',
-                    params: {
+                  navigation.navigate('ServiceServices',
+                    {
                       title: 'Segmento',
                       options: service?.service?.options,
                       multipleSelection: service?.service?.multipleSelection,
                       backScreen: 'ServiceStack',
                       serviceParams: data?.serviceParams ?? []
-                    }
-                  })
+                    })
                 }, 10);
               }
             }
@@ -609,7 +603,6 @@ const Service = () => {
                 textContentType={'none'}
                 autoCorrect={false}
                 multiline={true}
-                blurOnSubmit
                 returnKeyType={"done"}
                 onChangeText={text => { setData(prev => ({ ...prev, message: text })) }}
                 placeholder={'Mensagem'}
@@ -735,7 +728,10 @@ const Service = () => {
                       const analyticsItem = `${plaque}${data?.vehicle}`;
 
                       analytics().logEvent(service?.logEvent, {
-                        [analyticsStore]: analyticsItem?.toUpperCase()
+                        item_id: ad?.id?.toString() ?? null,
+                        item_name: analyticsItem?.toUpperCase(),
+                        store_id: store?._id,
+                        store_name: store?.company
                       });
                     }
                   }
@@ -787,7 +783,10 @@ const Service = () => {
                         analyticsServices?.map((item) => {
                           service?.logEvent &&
                             analytics().logEvent(service?.logEvent, {
-                              [analyticsStore]: item?.toUpperCase()
+                              item_id: null,
+                              item_name: item?.toUpperCase(),
+                              store_id: store?._id,
+                              store_name: store?.company
                             });
                         })
                       } else {
@@ -795,7 +794,10 @@ const Service = () => {
                         const analyticsItem = `${plaque}${data?.vehicle}`;
 
                         analytics().logEvent(service?.logEvent, {
-                          [analyticsStore]: analyticsItem?.toUpperCase()
+                          item_id: ad?.id?.toString() ?? null,
+                          item_name: analyticsItem?.toUpperCase(),
+                          store_id: store?._id,
+                          store_name: store?.company
                         });
                       }
 

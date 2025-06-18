@@ -1,16 +1,16 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { FlatList, Platform, useWindowDimensions } from "react-native"
-import { Button, Divider, Item, useColors } from "react-native-ui-devkit"
+import React, { useLayoutEffect, useMemo, useState } from "react"
+import { FlatList, Platform } from "react-native"
 import { useNavigation, useRoute } from "@react-navigation/native"
+import { Button, Divider, Item, useColors } from "react-native-ui-devkit"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+
 import NoDataYet from "../../../components/noDataYet"
 
-
 const AdsFilterItem = () => {
-  const colors = useColors()
   const navigation = useNavigation()
   const route = useRoute()
   const insets = useSafeAreaInsets()
+  const colors = useColors()
 
   const arrayItems = route.params?.arrayItems
   const backScreenName = route.params?.backScreenName
@@ -26,36 +26,39 @@ const AdsFilterItem = () => {
     return arrayItems?.filter(item => item?.description?.toLowerCase()?.includes(search));
   }, [arrayItems, search]);
 
+
+  const showFinishButton = useMemo(() => {
+    return field != 'brand' && field != 'model' && !field?.includes('price') && !field?.includes('year') && field != 'mileage' && field != 'store' && field != 'condition'
+  }, [field])
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: title,
       ...Platform.OS == 'ios' && { headerLeft: () => <Button link data={{ title: 'Cancelar', onPress: () => { navigation.goBack() } }} /> },
-      ...field != 'brand' && field != 'model' && !field?.includes('price') && !field?.includes('year') && field != 'mileage' && {
+      ...showFinishButton && {
         headerRight: () =>
           <Button
             link
-            right
             data={{
               title: 'Concluir',
               disabled: !data?.length,
               onPress: () => {
-                navigation.navigate({
-                  name: backScreenName,
-                  params: { field, value: data },
-                  merge: true
-                })
+                navigation.popTo(backScreenName, { field, value: data }, { merge: true })
               }
             }}
           />
       },
-      headerSearchBarOptions: {
-        placeholder: 'Pesquisar',
-        cancelButtonText: 'Cancelar',
-        autoCapitalize: 'none',
-        headerIconColor: colors.background,
-        hideWhenScrolling: false,
-        onChangeText: (event) => setSearch(event.nativeEvent.text),
-        onClose: () => { navigation.goBack(); }
+
+      ...Platform.OS == 'ios' && {
+        headerSearchBarOptions: {
+          placeholder: 'Pesquisar',
+          cancelButtonText: 'Cancelar',
+          autoCapitalize: 'none',
+          headerIconColor: colors.background,
+          hideWhenScrolling: false,
+          onChangeText: (event) => setSearch(event.nativeEvent.text),
+          onClose: () => { navigation.goBack(); }
+        }
       }
     })
 
@@ -66,17 +69,17 @@ const AdsFilterItem = () => {
       <Item
         data={{
           title: item?.description,
-          description: item?.count && `(${item?.count})`,
+          description: item?.count != null ? `(${item?.count})` : '',
+          ...field == 'store' && {
+            subdescription: item?.count != null ? `(${item?.count}) veículo(s)` : ''
+          },
+          disabled: item?.count == 0,
           radio: Array.isArray(data) ? data.includes(item?.description) : data == item?.description,
           onPress: () => {
             if (field != 'condition' && field != 'brand' && field != 'model' && !field?.includes('price') && !field?.includes('year') && field != 'mileage' && field != 'store') {
               setData(prevState => prevState?.includes(item?.description) ? prevState?.filter(i => i !== item?.description) : [...prevState, item?.description])
             } else {
-              navigation.navigate({
-                name: backScreenName,
-                params: { field, value: item?.description },
-                merge: true
-              })
+              navigation.popTo(backScreenName, { field, value: item?.description }, { merge: true })
             }
           },
         }}
