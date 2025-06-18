@@ -1,0 +1,424 @@
+diff --git a/node_modules/@react-native-community/segmented-control/index.d.ts b/node_modules/@react-native-community/segmented-control/index.d.ts
+index 9c636c5..5563670 100644
+--- a/node_modules/@react-native-community/segmented-control/index.d.ts
++++ b/node_modules/@react-native-community/segmented-control/index.d.ts
+@@ -91,6 +91,13 @@ export interface SegmentedControlProps extends ViewProps {
+    */
+   values?: string[];
+ 
++
++  /**
++   * The labels for the control's segment buttons, in order.
++   */
++   icons?: string[];
++
++
+   /**
+    * (iOS 13+ only)
+    * Overrides the control's appearance irrespective of the OS theme
+diff --git a/node_modules/@react-native-community/segmented-control/js/SegmentedControl.js b/node_modules/@react-native-community/segmented-control/js/SegmentedControl.js
+index dd93787..f81f8b2 100644
+--- a/node_modules/@react-native-community/segmented-control/js/SegmentedControl.js
++++ b/node_modules/@react-native-community/segmented-control/js/SegmentedControl.js
+@@ -15,9 +15,10 @@ import {
+   useColorScheme,
+ } from 'react-native';
+ 
+-import type {SegmentedControlProps} from './types';
+-import {SegmentedControlTab} from './SegmentedControlTab';
+-import {SegmentsSeparators} from './SegmentsSeparators';
++import type { SegmentedControlProps } from './types';
++import { SegmentedControlTab } from './SegmentedControlTab';
++import { useTheme } from '@react-navigation/native';
++import { BorderRadius, useColors } from 'react-native-ui-devkit';
+ 
+ /**
+  * SegmentedControl
+@@ -30,6 +31,7 @@ const SegmentedControl = ({
+   enabled = true,
+   selectedIndex,
+   values,
++  icons = [],
+   tintColor,
+   backgroundColor,
+   fontStyle,
+@@ -40,6 +42,28 @@ const SegmentedControl = ({
+   const colorScheme = appearance || colorSchemeHook;
+   const [segmentWidth, setSegmentWidth] = React.useState(0);
+   const animation = React.useRef(new Animated.Value(0)).current;
++  const colors = useColors();
++
++  const styles = StyleSheet.create({
++    default: {
++      height: 120,
++      backgroundColor: colors.android?.item,
++      overflow: 'hidden'
++    },
++    disabled: {
++      opacity: 0.4,
++    },
++    slider: {
++      position: 'absolute',
++    },
++    segmentsContainer: {
++      flex: 1,
++      flexDirection: 'row',
++      justifyContent: 'space-evenly',
++      alignItems: 'center',
++      zIndex: 99,
++    },
++  });
+ 
+   const handleChange = (index: number) => {
+     // mocks iOS's nativeEvent
+@@ -69,14 +93,11 @@ const SegmentedControl = ({
+     <View
+       style={[
+         styles.default,
+-        style,
+-        colorScheme === 'dark' && styles.darkControl,
+-        backgroundColor && {backgroundColor},
+-        !enabled && styles.disabled,
++        !enabled && styles.disabled
+       ]}
+       onLayout={({
+         nativeEvent: {
+-          layout: {width},
++          layout: { width },
+         },
+       }) => {
+         const newSegmentWidth = values.length ? width / values.length : 0;
+@@ -85,25 +106,18 @@ const SegmentedControl = ({
+           setSegmentWidth(newSegmentWidth);
+         }
+       }}>
+-      {!backgroundColor && !tintColor && (
+-        <SegmentsSeparators
+-          values={values.length}
+-          selectedIndex={selectedIndex}
+-        />
+-      )}
+       <View style={styles.segmentsContainer}>
+         {values &&
+           values.map((value, index) => {
+             return (
+               <SegmentedControlTab
++                key={`${index}-${new Date().getTime()}`}
+                 enabled={enabled}
+                 selected={selectedIndex === index}
+-                key={index}
++                index={index}
+                 value={value}
+-                tintColor={tintColor}
+-                fontStyle={fontStyle}
+-                activeFontStyle={activeFontStyle}
+-                appearance={colorScheme}
++                icon={icons[index]}
++                count={values?.length}
+                 onSelect={() => {
+                   handleChange(index);
+                 }}
+@@ -111,64 +125,8 @@ const SegmentedControl = ({
+             );
+           })}
+       </View>
+-      {selectedIndex != null && segmentWidth ? (
+-        <Animated.View
+-          style={[
+-            styles.slider,
+-            {
+-              transform: [{translateX: animation}],
+-              width: segmentWidth - 4,
+-              backgroundColor:
+-                tintColor || (colorScheme === 'dark' ? '#636366' : 'white'),
+-            },
+-          ]}
+-        />
+-      ) : null}
+     </View>
+   );
+ };
+ 
+-const styles = StyleSheet.create({
+-  default: {
+-    overflow: 'hidden',
+-    position: 'relative',
+-    height: 32,
+-    backgroundColor: '#EEEEF0',
+-    borderRadius: 9,
+-  },
+-  darkControl: {
+-    backgroundColor: '#1C1C1F',
+-  },
+-  disabled: {
+-    opacity: 0.4,
+-  },
+-  slider: {
+-    position: 'absolute',
+-    borderRadius: 7,
+-    top: 2,
+-    bottom: 2,
+-    right: 2,
+-    left: 2,
+-    borderWidth: 0.5,
+-    borderColor: 'rgba(0,0,0,0.04)',
+-    shadowColor: '#000',
+-    shadowOffset: {
+-      width: 0,
+-      height: 1,
+-    },
+-    shadowOpacity: 0.22,
+-    shadowRadius: 2.22,
+-    elevation: 3,
+-  },
+-  segmentsContainer: {
+-    flex: 1,
+-    flexDirection: 'row',
+-    justifyContent: 'space-evenly',
+-    alignItems: 'center',
+-    elevation: 5,
+-    backgroundColor: 'transparent',
+-    zIndex: 99,
+-  },
+-});
+-
+ export default SegmentedControl;
+diff --git a/node_modules/@react-native-community/segmented-control/js/SegmentedControlTab.js b/node_modules/@react-native-community/segmented-control/js/SegmentedControlTab.js
+index ea6f331..fd56bfa 100644
+--- a/node_modules/@react-native-community/segmented-control/js/SegmentedControlTab.js
++++ b/node_modules/@react-native-community/segmented-control/js/SegmentedControlTab.js
+@@ -4,115 +4,73 @@
+ 
+ 'use strict';
+ 
++import { useTheme } from '@react-navigation/native';
+ import * as React from 'react';
+ 
+ import {
+-  Image,
+   StyleSheet,
+-  Text,
+-  TouchableOpacity,
+-  View,
+-  useColorScheme,
++  Text, View
+ } from 'react-native';
+-
+-import type {FontStyle} from './types';
++import { Button, Icon, useColors } from 'react-native-ui-devkit';
+ 
+ type Props = $ReadOnly<{|
+   value: string | number | Object,
+-  tintColor?: ?string,
+-  onSelect: () => void,
+-  selected: boolean,
+-  enabled: boolean,
+-  fontStyle?: FontStyle,
+-  activeFontStyle?: FontStyle,
+-  appearance?: 'dark' | 'light' | null,
++    onSelect: () => void,
++      selected: boolean,
++        enabled: boolean,
+ |}>;
+ 
+-function isBase64(str) {
+-  const regex = /^data:image\/(?:gif|png|jpeg|bmp|webp)(?:;charset=utf-8)?;base64,(?:[A-Za-z0-9]|[+/])+={0,2}/;
+-  return str && regex.test(str);
+-}
+-
+ export const SegmentedControlTab = ({
++  index,
+   onSelect,
+   value,
++  count,
+   enabled,
+-  selected,
+-  tintColor,
+-  fontStyle = {},
+-  activeFontStyle = {},
+-  appearance,
++  icon,
++  selected
+ }: Props): React.Node => {
+-  const colorSchemeHook = useColorScheme();
+-  const colorScheme = appearance || colorSchemeHook;
+-  const {color: textColor, fontSize, fontFamily, fontWeight} = fontStyle;
++  const colors = useColors();
+ 
+-  const {
+-    color: activeColor,
+-    fontSize: activeFontSize,
+-    fontFamily: activeFontFamily,
+-    fontWeight: activeFontWeight,
+-  } = activeFontStyle;
++  return (
++    <View style={{ flex: 1, flexDirection: 'row' }}>
++      <Button data={{
++        component:
++          <View style={{ flex: 1, alignItems: 'center' }}>
++            {icon &&
++              <View style={{ height: 30 }}>
++                {icon}
++              </View>
++            }
+ 
+-  const getColor = () => {
+-    if (textColor) {
+-      return textColor;
+-    }
+-    if (tintColor) {
+-      return 'white';
+-    }
+-    return colorScheme === 'dark' ? '#FFF' : '#000';
+-  };
+-  const color = getColor();
++            <Text style={[{ color: selected ? colors.primary : colors.secondary, fontSize: 14.5, fontWeight: selected ? 'bold' : 'normal', textAlign: 'center', marginBottom: 20, marginHorizontal: 10 }]} numberOfLines={1}>{value}</Text>
+ 
+-  const activeStyle = {
+-    ...styles.activeText,
+-    fontFamily: activeFontFamily || fontFamily,
+-    fontSize: activeFontSize || fontSize,
+-    color: activeColor || color,
+-    fontWeight: activeFontWeight || fontWeight || styles.activeText.fontWeight,
+-  };
++            {selected &&
++              <View style={{ width: 20, height: 20, borderColor: colors.primary, borderWidth: 1.2, borderRadius: 10 }}>
++                <View style={{ width: 11, height: 11, backgroundColor: colors.primary, borderRadius: 5.5, position: 'absolute', left: 3.35, top: 3.33 }} />
++              </View>
++            }
++            {!selected &&
++              <View style={{ width: 20, height: 20, borderColor: colors.tertiary, borderWidth: 1.2, borderRadius: 15 }} />
++            }
++          </View>,
++        padding: false,
++        disabled: !enabled,
++        onPress: onSelect,
++        style: {
++          width: '100%',
++          height: '100%',
++          borderRadius: 0,
++          marginLeft: 0,
++          marginTop: 0,
++          marginRight: 0,
++          marginBottom: 0,
++          padding: 0,
++          borderWidth: 0
++        }
++      }}  marginTop={false} style={{ flex: 1, height: 124, width: '100%' }} />
+ 
+-  const idleStyle = {
+-    color,
+-    fontSize: fontSize,
+-    fontFamily: fontFamily,
+-    fontWeight: fontWeight,
+-  };
++      {(index + 1) < count && <View style={{ width: StyleSheet.hairlineWidth * 2, height: 60, backgroundColor: colors.tertiary, opacity: 0.20, marginTop: 16 }} />}
+ 
+-  return (
+-    <TouchableOpacity
+-      style={styles.container}
+-      disabled={!enabled}
+-      onPress={onSelect}>
+-      <View style={[styles.default]}>
+-        {typeof value === 'number' || typeof value === 'object' ? (
+-          <Image source={value} style={styles.segmentImage} />
+-        ) : isBase64(value) ? (
+-          <Image source={{uri: value}} style={styles.segmentImage} />
+-        ) : (
+-          <Text style={[idleStyle, selected && activeStyle]}>{value}</Text>
+-        )}
+-      </View>
+-    </TouchableOpacity>
++    </View>
+   );
+ };
+-
+-const styles = StyleSheet.create({
+-  container: {flex: 1, borderRadius: 5},
+-  default: {
+-    flex: 1,
+-    justifyContent: 'center',
+-    alignItems: 'center',
+-    margin: 2,
+-    borderRadius: 5,
+-  },
+-  activeText: {
+-    fontWeight: '700',
+-  },
+-  segmentImage: {
+-    width: 17,
+-    height: 17,
+-    resizeMode: 'contain',
+-  },
+-});
+diff --git a/node_modules/@react-native-community/segmented-control/js/SegmentsSeparators.js b/node_modules/@react-native-community/segmented-control/js/SegmentsSeparators.js
+deleted file mode 100644
+index c2f5124..0000000
+--- a/node_modules/@react-native-community/segmented-control/js/SegmentsSeparators.js
++++ /dev/null
+@@ -1,65 +0,0 @@
+-/**
+- * @flow
+- */
+-
+-'use strict';
+-
+-import * as React from 'react';
+-
+-import {StyleSheet, View, useColorScheme} from 'react-native';
+-
+-type Props = $ReadOnly<{|
+-  values: number,
+-  selectedIndex: ?number,
+-|}>;
+-
+-export const SegmentsSeparators = ({
+-  values,
+-  selectedIndex,
+-}: Props): React.Node => {
+-  const colorScheme = useColorScheme();
+-  const hide = (val) => {
+-    return selectedIndex === val || selectedIndex === val + 1;
+-  };
+-
+-  return (
+-    <View style={styles.separatorsContainer}>
+-      {[...Array(values - 1).keys()].map((val) => {
+-        return (
+-          <View
+-            key={val}
+-            style={[
+-              styles.separator,
+-              colorScheme === 'dark' && styles.darkSeparator,
+-              hide(val) && styles.hide,
+-            ]}
+-          />
+-        );
+-      })}
+-    </View>
+-  );
+-};
+-
+-const styles = StyleSheet.create({
+-  separatorsContainer: {
+-    position: 'absolute',
+-    top: 0,
+-    left: 0,
+-    right: 0,
+-    bottom: 0,
+-    flexDirection: 'row',
+-    alignItems: 'center',
+-    justifyContent: 'space-evenly',
+-  },
+-  separator: {
+-    width: 1,
+-    height: '50%',
+-    backgroundColor: '#D1D1D4',
+-  },
+-  darkSeparator: {
+-    backgroundColor: '#3F3F42',
+-  },
+-  hide: {
+-    backgroundColor: 'transparent',
+-  },
+-});

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "178023609749",
+    "project_id": "a6540177aaee85f49f3b44",
+    "storage_bucket": "a6540177aaee85f49f3b44.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:178023609749:android:2cae46a11e89916d8eb29c",
+        "android_client_info": {
+          "package_name": "com.l101veiculos.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgjQ7OrPoheAlySSBpThdOpz-rT5S9SN0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
