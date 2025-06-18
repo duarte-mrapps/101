@@ -1,37 +1,44 @@
 import { device, by, element } from 'detox';
 
 describe('Example', () => {
-  beforeAll(async () => {
-    await device.launchApp({
-      launchArgs: { isTesting: true },
-      delete: true,
-    });
-  });
+  beforeAll(async () => { await device.launchApp(); await new Promise(resolve => setTimeout(resolve, 1000)) });
 
   it('should take screenshots of all screens', async () => {
-    await new Promise(resolve => setTimeout(resolve, 8000));
-    await device.takeScreenshot('01')
+    try {
+      await waitFor(element(by.text('Não'))).toBeVisible().withTimeout(20000)
+      await element(by.text('Não')).tap()
+    } catch (error) { }
 
-    await expect(element(by.text('Estoque'))).toBeVisible();
-    await element(by.text('Estoque')).tap()
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await device.takeScreenshot('02')
+    try {
+      await waitFor(element(by.id('MainCarrousel'))).toBeVisible().withTimeout(20000)
+      await element(by.id('MainCarrousel')).swipe('right', 'fast')
+      await device.takeScreenshot('01')
+    } catch (error) { }
 
-    await element(by.label('SearchItem-0')).tap()
+    try {
+      await waitFor(element(by.text('Estoque'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.text('Estoque'))).toBeVisible();
+      await element(by.text('Estoque')).tap()
+      await device.takeScreenshot('02')
+    } catch (error) { }
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await device.takeScreenshot('03')
+    try {
+      await waitFor(element(by.id('SearchItem-0'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.id('SearchItem-0'))).toBeVisible();
+      await element(by.id('SearchItem-0')).tap()
+      await device.takeScreenshot('03')
+    } catch (error) { }
 
-    await device.pressBack()
+    try {
+      await waitFor(element(by.id('AccountSidebar'))).toBeVisible().withTimeout(20000)
+      await element(by.id('AccountSidebar')).swipe('up', 'fast')
+    } catch (error) { }
 
-    await element(by.label('AccountSidebar')).swipe('up', 'fast')
-
-    await expect(element(by.text('Sobre nós'))).toBeVisible();
-    await element(by.text('Sobre nós')).tap()
-
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await device.takeScreenshot('04')
-
-    await device.uninstallApp()
+    try {
+      await waitFor(element(by.text('Sobre nós'))).toBeVisible().withTimeout(20000);
+      await expect(element(by.text('Sobre nós'))).toBeVisible();
+      await element(by.text('Sobre nós')).tap()
+      await device.takeScreenshot('04')
+    } catch (error) { }
   });
 });

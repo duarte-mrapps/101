@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Appearance, Dimensions, Platform, Text, View } from 'react-native';
 import { Divider, useColors, Button, Separator, Item, IosOldVersion, TitleFontSize, MediumFontSize, Icon } from 'react-native-ui-devkit';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -10,48 +10,35 @@ import NoDataYet from '../../components/noDataYet';
 import Session from '../../libs/session';
 import { FilterContext } from '../../libs/filterContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { isTablet } from 'react-native-device-info';
 import FastImage from 'react-native-fast-image';
 
 const Stores = () => {
   const { global, setGlobal, store, setStore } = useContext(GlobalContext);
   const { clearFilter } = useContext(FilterContext)
   const queryClient = useQueryClient();
-  const colors = useColors()
-  const navigation = useNavigation()
   const theme = Appearance.getColorScheme();
+  const [search, setSearch] = useState(null);
+  const [loading, setLoading] = useState(null);
   const route = useRoute()
   const searcher = route?.params?.searcher;
   const backScreen = route.params?.backScreen
+
   const { width } = Dimensions.get('screen');
+
   const config = Session.getConfig();
 
-  /** @type { React.MutableRefObject<import('@react-navigation/elements').HeaderSearchBarRef> } */
-  const searchBarRef = useRef()
-
-  const [search, setSearch] = useState(null);
-  const [loading, setLoading] = useState(null);
-
   useEffect(() => {
-    if (searcher) {
-      setTimeout(() => {
-        searchBarRef.current?.focus()
-      }, 500)
+    if (global.loc?.[0] != 0 && global.loc?.[1] != 0) {
+
     }
-  }, [searcher])
+  }, [global])
 
   const stores = useMemo(() => {
-    let defaultStore;
-    const joinStores = [];
-
-    defaultStore = config?.stores?.find((item) => item?._id == config?.defaultStore);
-    defaultStore && joinStores.push(defaultStore);
-
-    let othersStores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0 && store?._id != config?.defaultStore));
-    othersStores?.sort((a, b) => a?.company?.localeCompare(b?.company));
-    othersStores && joinStores.push(...othersStores);
+    const stores = config?.stores?.filter((store) => (store?.hidden != true && store?.services?.length > 0));
 
     const result = search?.length
-      ? joinStores
+      ? stores
         ?.filter(item =>
           (item?.company?.toLowerCase().includes(search?.trim()?.toLowerCase())) ||
           (item?.document?.toLowerCase().includes(search?.trim()?.toLowerCase())) ||
@@ -59,7 +46,7 @@ const Stores = () => {
           search == null
         )
       : (Platform.OS == 'ios' || !searcher)
-        ? joinStores
+        ? stores
           ?.filter(item =>
             (item?.company?.toLowerCase().includes(search?.trim()?.toLowerCase())) ||
             (item?.document?.toLowerCase().includes(search?.trim()?.toLowerCase())) ||
@@ -72,6 +59,9 @@ const Stores = () => {
 
     return result
   }, [search])
+
+  const colors = useColors()
+  const navigation = useNavigation()
 
   /** @type { HeaderOptions }  */
   const options = {
@@ -92,14 +82,14 @@ const Stores = () => {
     ),
     ...(Platform.OS == 'ios' || searcher) && {
       headerSearchBarOptions: {
-        ref: searchBarRef,
         placeholder: 'Pesquisar',
         cancelButtonText: 'Cancelar',
         autoCapitalize: 'none',
         textColor: colors.text,
         headerIconColor: colors.background,
+        headerCloseIconColor: colors.secondary,
         hintTextColor: colors.secondary,
-        autoFocus: true,
+        ...(searcher && { autoFocus: true }),
         hideWhenScrolling: false,
         obscureBackground: false,
         onChangeText: (e) => setSearch(e.nativeEvent.text),
@@ -113,7 +103,7 @@ const Stores = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions(options);
-  }, [navigation, colors, searcher])
+  }, [navigation, colors])
 
   const renderItem = ({ item, index, separators }) => {
     stores[index].separators = separators;
@@ -156,7 +146,11 @@ const Stores = () => {
                   navigation.goBack();
                 }
               } else {
-                navigation.goBack();
+                if ((isTablet() || Platform.isPad) && width >= 768) {
+                  navigation.goBack();
+                } else {
+                  backScreen && navigation.navigate(backScreen);
+                }
 
                 setGlobal((prevState) => ({ ...prevState, loadedAds: false, timestamp: Date.now() }));
 
@@ -171,8 +165,7 @@ const Stores = () => {
             }, 250);
           }
         }}
-          marginTop={false}
-          index={index} count={stores?.length} expanded={Platform.OS == 'ios'} />
+          index={index} count={stores?.length} />
       </>
     )
   }
@@ -183,7 +176,6 @@ const Stores = () => {
       keyExtractor={(item, index) => String(index)}
       renderItem={renderItem}
       ItemSeparatorComponent={(props) => { return <Separator props={props} start={Platform.OS == 'ios' ? 42 : 60} /> }}
-      {...Platform.OS == 'ios' && { style: { backgroundColor: colors.ios.item } }}
       ListEmptyComponent={
         <>
           <Divider />
@@ -210,7 +202,7 @@ const Stores = () => {
 
                 <Divider />
 
-                <Text style={[TitleFontSize(1.5), { fontWeight: '600', color: colors.text, textAlign: 'center' }]}>{config?.name}</Text>
+                <Text style={[TitleFontSize(1.5), { fontWeight: '600', color: colors.text }]}>{config?.name}</Text>
                 <Text style={[MediumFontSize(), { fontWeight: '400', color: colors.text, textAlign: 'center', marginTop: 5 }]}>Antes de começar, você precisa selecionar a loja de sua preferência.</Text>
               </View>
             </>

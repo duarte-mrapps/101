@@ -40,51 +40,28 @@ const FilterProvider = ({ children }: PropsWithChildren) => {
     setFilterTemp(data)
   }
 
-  const clearFilter = (fields?: string | string[]) => {
-    const fieldsToClear = Array.isArray(fields) ? fields : fields ? [fields] : [];
-    
-    const clearFieldInState = (prevState: any) => {
-      // Limpeza total (quando fields é undefined ou vazio)
-      if (!fields || fieldsToClear.length === 0) {
-        return { condition: 'Novos / Seminovos' };
-      }
-  
-      // Cria novo objeto sem os campos especificados
-      const newState = { ...prevState };
-      
-      fieldsToClear.forEach(field => {
-        if (!field) return;
-  
-        if (field === 'condition') {
-          newState.condition = 'Novos / Seminovos';
-        } 
-        else if (field.includes('year.')) {
-          const [_, subField] = field.split('.');
-          if (newState.year) {
-            const newYear = { ...newState.year };
-            delete newYear[subField];
-            newState.year = Object.keys(newYear).length > 0 ? newYear : undefined;
-          }
-        }
-        else if (field.includes('price.')) {
-          const [_, subField] = field.split('.');
-          if (newState.price) {
-            const newPrice = { ...newState.price };
-            delete newPrice[subField];
-            newState.price = Object.keys(newPrice).length > 0 ? newPrice : undefined;
-          }
-        }
-        else {
-          delete newState[field];
-        }
-      });
-  
-      return newState;
-    };
-  
-    setFilter(prevState => clearFieldInState(prevState));
-    setFilterTemp(prevState => clearFieldInState(prevState));
-  };
+  const clearFilter = (field?: string) => {
+    if (field == 'year.from') {
+      setFilter(prevState => ({ ...prevState, year: { from: null, to: prevState?.year?.to } }))
+      setFilterTemp(prevState => ({ ...prevState, year: { from: null, to: prevState?.year?.to } }))
+    } else if (field == 'year.to') {
+      setFilter(prevState => ({ ...prevState, year: { from: prevState?.year?.from, to: null } }))
+      setFilterTemp(prevState => ({ ...prevState, year: { from: prevState?.year?.from, to: null } }))
+    } else if (field == 'price.from') {
+      setFilter(prevState => ({ ...prevState, price: { from: null, to: prevState?.price?.to } }))
+      setFilterTemp(prevState => ({ ...prevState, price: { from: null, to: prevState?.price?.to } }))
+    } else if (field == 'price.to') {
+      setFilter(prevState => ({ ...prevState, price: { from: prevState?.price?.from, to: null } }))
+      setFilterTemp(prevState => ({ ...prevState, price: { from: prevState?.price?.from, to: null } }))
+    } else if (field) {
+      setFilter(prevState => ({ ...prevState, [field]: null }))
+      setFilterTemp(prevState => ({ ...prevState, [field]: null }))
+    } else {
+      setFilter({ condition: 'Novos / Seminovos' })
+      setFilterTemp({ condition: 'Novos / Seminovos' })
+    }
+  }
+
   return (
     <FilterContext.Provider
       value={{

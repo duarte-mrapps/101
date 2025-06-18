@@ -1,8 +1,8 @@
-import React, { useEffect, useContext, useCallback, Fragment } from 'react';
-import { AppState, View, Alert, Linking } from 'react-native';
+import React, { useEffect, useContext, useCallback, Fragment, useState } from 'react';
+import { AppState, View, Appearance, Alert, Linking } from 'react-native';
 import { OneSignal } from 'react-native-onesignal';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { focusManager } from '@tanstack/react-query'
+import { focusManager, useQueryClient } from '@tanstack/react-query'
 import { io } from 'socket.io-client';
 import Rate, { AndroidMarket } from 'react-native-rate';
 import SplashScreen from 'react-native-splash-screen';
@@ -17,6 +17,8 @@ import DeviceInfo from 'react-native-device-info';
 const RoutesInit = () => {
     const { global, setGlobal, store, setStore } = useContext(GlobalContext);
     const netInfo = useNetInfo();
+    const queryClient = useQueryClient();
+
 
     useEffect(() => {
         initialize();
@@ -33,14 +35,6 @@ const RoutesInit = () => {
             }
         })()
     }, [netInfo.isConnected]);
-
-    useEffect(() => {
-        if (!global?.firstTime || global?.suggestStoreSelection) {
-            setTimeout(() => {
-                SplashScreen?.hide();
-            }, 100);
-        }
-    }, [global.firstTime, global.suggestStoreSelection])
 
     const initialize = useCallback(async () => {
         OneSignal.initialize(Constants.ONESIGNAL_APP_ID);
@@ -100,15 +94,13 @@ const RoutesInit = () => {
 
         global.loaded = true;
 
-        if (!global?.firstTime) {
-            setTimeout(() => {
-                SplashScreen?.hide();
-            }, 100);
-        }
-
         Session.setGlobal(global);
         setStore({ ...store });
         setGlobal({ ...global });
+
+        setTimeout(() => {
+            SplashScreen.hide();
+        }, 10);
 
         setTimeout(() => {
             after();
@@ -140,9 +132,9 @@ const RoutesInit = () => {
                     if (update) {
                         getConfig(setGlobal, setStore);
 
-                        // queryClient.invalidateQueries().then(() => {
-                        //     setGlobal((prevState) => ({ ...prevState, timestamp: Date.now() }));
-                        // })
+                        queryClient.invalidateQueries().then(() => {
+                            setGlobal((prevState) => ({ ...prevState, timestamp: Date.now() }));
+                        })
                     }
                 });
 
