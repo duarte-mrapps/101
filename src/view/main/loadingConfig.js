@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import { View, Text, Platform, StatusBar, Appearance } from 'react-native';
 import { Divider, Icon, IosOldVersion, Item, MediumFontSize, TitleFontSize } from 'react-native-ui-devkit';
-import { useTheme } from '@react-navigation/native';
+import { useNavigation, useTheme } from '@react-navigation/native';
 import ExtraDimensions from 'react-native-extra-dimensions-android';
 import NavigationBar from 'react-native-navbar-color';
 
@@ -12,12 +12,13 @@ import helper from '../../libs/helper';
 
 const LoadingConfig = (props) => {
     const { global, setGlobal } = useContext(GlobalContext);
+    const navigation = useNavigation();
     const { colors } = useTheme();
     const theme = Appearance.getColorScheme();
 
     useEffect(() => {
         if (Platform.OS == 'android') {
-            StatusBar.setBackgroundColor(colors.background, true);
+            StatusBar.setBackgroundColor(theme == 'dark' ? '#000' : colors.background, true);
             StatusBar.setBarStyle(theme == 'dark' ? 'light-content' : 'dark-content', true);
 
             let soft = ExtraDimensions.getIsSoftMenuBar();
@@ -47,7 +48,7 @@ const LoadingConfig = (props) => {
         } else {
             setTimeout(() => {
                 checkConfig();
-            }, 1000);
+            }, 4000);
         }
     }
 

@@ -8,14 +8,14 @@ import { GlobalContext } from '../../libs/globalContext';
 import useGlobalStyles from '../../assets/styles';
 import Session from '../../libs/session';
 
-const Header = ({ profileView, type, onNavigate, selectedTab, setSelectedTab, walletAction, connectedDevicesAction, selectPhoto, selectBackgroundPhoto, updating, business, view, ...props }) => {
+const Header = ({ profileView, type, onNavigate, walletAction, connectedDevicesAction, selectPhoto, selectBackgroundPhoto, updating, business, view, ...props }) => {
     const { store } = useContext(GlobalContext);
     const colors = useColors();
     const styles = useGlobalStyles();
     const theme = Appearance.getColorScheme();
 
     const config = Session.getConfig();
-    const stores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0));
+    const stores = config?.stores?.filter((store) => store?.hidden != true);
 
     const header = [
         {
@@ -84,9 +84,7 @@ const Header = ({ profileView, type, onNavigate, selectedTab, setSelectedTab, wa
                 title: colors.primary
             },
             ...Platform.OS == 'ios' && { separator: { start: Platform.isPad ? 90 : 105 } },
-            selected: selectedTab == 'stores',
             onPress: () => {
-                setSelectedTab('stores');
                 onNavigate('AboutUsStores', { backScreen: 'AccountTab' });
             }
         }

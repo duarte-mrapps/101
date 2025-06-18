@@ -24,7 +24,7 @@ const AboutUs = () => {
 
   useEffect(() => {
     if (store && title) {
-      const screen = `${store?.company} - Sobre-nós - ${title}`;
+      const screen = `${store?.company} - About Us - ${title}`;
       analytics().logScreenView({
         screen_name: screen,
         screen_class: screen,

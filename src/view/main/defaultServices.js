@@ -49,7 +49,7 @@ const DefaultServices = () => {
                                         <Text style={[DescriptionFontSize(), { color: colors.secondary }]}>{item.description}</Text>
                                     </View>
                                 </View>
-                                <Button link data={{ title: item.button, onPress: () => { navigation.navigate(item?.route, { service: item }) } }} marginTop={false} style={{ alignItems: 'center' }} />
+                                <Button link data={{ title: item.button, onPress: () => { navigation.navigate({ name: item?.route, params: { service: item } }) } }} marginTop={false} style={{ alignItems: 'center' }} />
                             </View>
                         )
                     }}

@@ -12,7 +12,6 @@ import { GlobalContext } from '../../libs/globalContext';
 import { NoAdYet } from '../../components/noDataYet';
 import GET from '../../libs/api';
 import Session from '../../libs/session';
-import helper from '../../libs/helper';
 
 let searchTimeout;
 
@@ -68,6 +67,7 @@ const MainSearch = ({ search }) => {
 
     return (
       <Item
+        header={index == 0 && search && `${ListData?.length} ${ListData?.length > 1 ? 'carros encontrados' : 'carro encontrado'} `}
         data={{
           icon: {
             component:
@@ -96,14 +96,7 @@ const MainSearch = ({ search }) => {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                         <Text style={[DescriptionFontSize(), { color: colors.text }]} numberOfLines={1}>{item.manufactureYear}/{item.modelYear} {item.fuel} {item.transmission} {new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item.mileage)}</Text>
                       </View>
-                      <Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item.price) : 'Consulte'}</Text>
-
-                      {config?.unifiedAds &&
-                        <View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
-                          <Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
-                          <Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
-                        </View>
-                      }
+                      <Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item.price)}</Text>
                     </View>
                   </>,
                 padding: false,
@@ -121,8 +114,8 @@ const MainSearch = ({ search }) => {
             navigation.navigate('Detail', { ad: item, title: 'Estoque' })
           }
         }}
-        marginTop={false}
-        expanded
+        marginTop={true}
+
         index={index} count={ListData.length > 10 ? 10 : ListData.length}
       />
     )
@@ -132,11 +125,10 @@ const MainSearch = ({ search }) => {
     <FlatList
       data={ListData?.slice(0, 10)}
       contentInsetAdjustmentBehavior='automatic'
-      keyExtractor={(item, index) => String(index)}
-      ItemSeparatorComponent={(props) => { return <Separator props={props} start={Platform.OS == 'ios' ? 76 : 110} /> }}
+      contentContainerStyle={{ paddingBottom: insets.bottom ? insets.bottom : 15 }}
+      ItemSeparatorComponent={(props) => { return <Separator props={props} start={Platform.OS == 'ios' ? 90 : 110} /> }}
       keyboardDismissMode='on-drag'
       renderItem={renderItem}
-      style={{ backgroundColor: (Platform.OS == 'ios') ? colors.ios.item : colors.android.item }}
       ListEmptyComponent={
         <>
           <Divider />
