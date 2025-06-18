@@ -124,6 +124,16 @@ else
   log "prints folder not found, skipping backup"
 fi
 
+# Copiar MARKETING_VERSION e CURRENT_PROJECT_VERSION
+CARDEALER_PBXPROJ="ios/cardealer.xcodeproj/project.pbxproj"
+APPDALOJA_PBXPROJ="ios/appdaloja.xcodeproj/project.pbxproj"
+
+MARKETING_VERSION=$(grep -v OneSignalNotificationServiceExtension "$CARDEALER_PBXPROJ" | grep MARKETING_VERSION | head -n 1 | awk '{print $3}' | tr -d ';')
+CURRENT_PROJECT_VERSION=$(grep -v OneSignalNotificationServiceExtension "$CARDEALER_PBXPROJ" | grep CURRENT_PROJECT_VERSION | head -n 1 | awk '{print $3}' | tr -d ';')
+
+log "MARKETING_VERSION: $MARKETING_VERSION"
+log "CURRENT_PROJECT_VERSION: $CURRENT_PROJECT_VERSION"
+
 # Limpa o projeto na main
 log "Cleaning project on main branch..."
 find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} \;
@@ -146,6 +156,15 @@ do
     sed -i.bak "s/{{${placeholder}}}/${value}/g" "$file" && rm "${file}.bak"
   done
 done
+
+# Atualiza versões no novo pbxproj
+if [ -f "$APPDALOJA_PBXPROJ" ]; then
+  sed -i.bak "s/MARKETING_VERSION = .*;/MARKETING_VERSION = $MARKETING_VERSION;/" "$APPDALOJA_PBXPROJ"
+  sed -i.bak "s/CURRENT_PROJECT_VERSION = .*;/CURRENT_PROJECT_VERSION = $CURRENT_PROJECT_VERSION;/" "$APPDALOJA_PBXPROJ"
+  rm "$APPDALOJA_PBXPROJ.bak"
+else
+  log "Arquivo $APPDALOJA_PBXPROJ não encontrado para substituir versões."
+fi
 
 # Restaura os assets no template
 log "Restoring assets into template..."
