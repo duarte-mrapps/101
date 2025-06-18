@@ -30,12 +30,8 @@ export const DialogProvider = ({ children }) => {
 
   const dialogComponent = () => (
     <Modal visible={options?.visible} animationType="fade" transparent={true} onRequestClose={() => { hideDialog(false) }} statusBarTranslucent>
-      <TouchableWithoutFeedback onPress={() => { }}>
-        <View style={{ flex: 1 }}>
-          <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
-            onPress={() => { hideDialog(false) }}
-          />
+      <TouchableWithoutFeedback onPress={() => { hideDialog(false) }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)' }}>
           <View style={{
             flex: 1,
             width: ((isTablet() || Platform.isPad) && width >= 768) ? '56%' : '100%',
@@ -62,16 +58,25 @@ export const DialogProvider = ({ children }) => {
             }}>
               {options?.title && <Text style={[{ fontWeight: 'bold', marginLeft: 20, marginTop: 10, color: options?.colors?.text }, TitleFontSize()]}>{options?.title}</Text>}
               <ScrollView style={{ flex: 1, paddingTop: 10, maxHeight: height / 1.5 }}>
-                {options?.data?.map((item, index) => {
-                  item?.data?.map((item, index) => {
-                    if (item != null) {
-                      item.noDivider = true;
-                      item.style = { backgroundColor: 'transparent' };
-                      if ((isTablet() || Platform.isPad) && width >= 768) { item.style.marginLeft = 0 };
-                    }
-                  });
+                {options?.data?.map((section, sectionIndex) => {
+                  const formattedData = section?.data?.map((entry) => {
+                    if (!entry) return null
 
-                  return (<List key={index} data={item.data} header={item.header} forceHeader expanded colors={options?.colors} />)
+                    const newStyle = { backgroundColor: 'transparent', ...(isTablet() || Platform.isPad) && width >= 768 ? { marginLeft: 0 } : {} }
+
+                    return { ...entry, noDivider: true, style: newStyle }
+                  })
+
+                  return (
+                    <List
+                      key={sectionIndex}
+                      data={formattedData}
+                      header={section.header}
+                      forceHeader
+                      expanded
+                      colors={options?.colors}
+                    />
+                  )
                 })}
               </ScrollView>
               <View style={{ marginBottom: 12, marginHorizontal: 20 }}>

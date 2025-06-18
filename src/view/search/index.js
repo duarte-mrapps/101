@@ -1,5 +1,5 @@
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Appearance, View, Platform, FlatList, Text, Image, ActivityIndicator } from 'react-native';
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Appearance, View, Platform, FlatList, Text, Image, ActivityIndicator, Pressable } from 'react-native';
 import { Button, Item, useColors, TitleFontSize, DescriptionFontSize, Separator, Divider, Icon, MediumFontSize, AndroidOldVersion } from 'react-native-ui-devkit';
 import { useMutation, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -20,17 +20,20 @@ import ContextMenuOrderList from './contextFilter';
 import helper from '../../libs/helper';
 import BestSelling from '../main/bestSelling';
 import Session from '../../libs/session';
+import { LaunchArguments } from 'react-native-launch-arguments';
 
 let searchTimeout;
 
 const Search = () => {
-	const { global, setGlobal, store, setStore } = useContext(GlobalContext);
+	const { global, setGlobal, store } = useContext(GlobalContext);
 	const navigation = useNavigation()
 	const route = useRoute()
 	const colors = useColors();
 	const queryClient = useQueryClient();
 	const theme = Appearance.getColorScheme();
 	const { showDialog, reload } = useDialog()
+	const [focus, setFocus] = useState(false);
+
 	const insets = useSafeAreaInsets()
 
 	const list = route.params?.list;
@@ -41,8 +44,13 @@ const Search = () => {
 	const nofilters = route.params?.nofilters;
 	const backScreen = route.params?.backScreen ?? 'SearchTab';
 
+	const isTesting = LaunchArguments.value()?.isTesting || false
+
+	/** @type { React.MutableRefObject<import('@react-navigation/elements').HeaderSearchBarRef> } */
+	const searchBarRef = useRef()
+
 	const config = Session.getConfig();
-	const ads = Session.getAds(config?.unifiedAds ? 'all' : store?._id);
+	const ads = Session.getAds(store?._id);
 	let favoritesExits = ads?.find((ad) => ad?.favorite && ad) != null;
 
 	const filterContext = useContext(FilterContext)
@@ -59,19 +67,12 @@ const Search = () => {
 	const [contextFilter, setContextFilter] = useState({ updatedAt: null, featured: true, lowestPrice: false, biggestPrice: false, lowestKm: false })
 	const [contextFilterTemp, setContextFilterTemp] = useState({ updatedAt: null, featured: true, lowestPrice: false, biggestPrice: false, lowestKm: false })
 
-	const [search, setSearch] = useState(null);
+	const [search, setSearch] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [debounceValue] = useDebounce(search, 1000);
 
-
-	useEffect(() => {
-		setLoading(false)
-		const queryKey = list ? 'FiltersList' : 'Filters';
-		queryClient.removeQueries({ queryKey, exact: true })
-	}, [debounceValue])
-
 	const { data: queryData, isFetching, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery({
-		queryKey: [list ? 'FiltersList' : 'Filters', config, global.isConnected, store, debounceValue, contextFilter, filter],
+		queryKey: [list ? 'FiltersList' : 'Filters', config, searcher, global.isConnected, store, debounceValue, contextFilter, filter],
 		queryFn: async ({ pageParam = 0 }) => {
 			const response = await GET(pageParam, 10, debounceValue, filter, contextFilter, setGlobal, queryClient)
 			return response;
@@ -85,7 +86,7 @@ const Search = () => {
 			return undefined;
 		},
 
-		enabled: searcher ? (debounceValue ? true : false) : true
+		enabled: searcher ? (!!debounceValue) : true
 	})
 
 	const { mutateAsync: updateStatistic } = useMutation({
@@ -113,11 +114,12 @@ const Search = () => {
 	const options = {
 		...type && !searcher && { title: getTitle() },
 		...searcher && { title: '' },
-		headerRight: ({ tintColor }) => (
+		headerRight: ({ tintColor }) => !focus && (
 			<>
 				{!nofilters &&
-					<Button icon right data={{ delay: false, icon: { name: 'sliders', type: 'font-awesome', size: 20, color: tintColor }, onPress: () => { navigation.navigate('AdsFilter') } }} />
+					<Button icon right data={{ delay: false, icon: { name: 'sliders', type: 'font-awesome', size: 20, color: tintColor }, onPress: () => { navigation.push('AdsFilter') } }} />
 				}
+
 				{Platform.OS == 'ios' &&
 					<ContextMenuOrderList contextFilter={contextFilter} setContextFilter={setContextFilter} contextFilterTemp={contextFilterTemp} setContextFilterTemp={setContextFilterTemp}>
 						<Button icon right data={{ delay: false, icon: { name: Platform.OS == 'ios' ? 'ellipsis-horizontal-circle' : 'ellipsis-vertical', type: 'ionicons', size: Platform.OS == 'ios' ? 26 : 20, color: tintColor }, onPress: () => { } }} />
@@ -160,30 +162,36 @@ const Search = () => {
 		...(Platform.OS == 'ios' || searcher) &&
 		{
 			headerSearchBarOptions: {
+				ref: searchBarRef,
 				placeholder: 'Pesquisar',
 				cancelButtonText: 'Cancelar',
 				autoCapitalize: 'none',
 				textColor: colors.text,
 				headerIconColor: colors.background,
-				headerCloseIconColor: colors.secondary,
 				hintTextColor: colors.secondary,
-				...(searcher && { autoFocus: true }),
 				hideWhenScrolling: false,
 				obscureBackground: false,
 				onChangeText: (e) => {
 					setSearch(e?.nativeEvent?.text);
 					setLoading(!(e?.nativeEvent?.text == '') || (dataList?.length == 0) || !(search == ''))
 				},
-				onFocus: (e) => { e.preventDefault() },
+				onFocus: (e) => { e.preventDefault(); setFocus(true); },
 				onBlur: (e) => { e.preventDefault() },
-				onClose: (e) => { navigation?.goBack(null); }
+				onClose: (e) => { navigation?.goBack(null); },
+				onCancelButtonPress: (e) => { e.preventDefault(); setFocus(false); },
 			}
 		}
 	}
 
 	useLayoutEffect(() => {
 		navigation.setOptions(options);
-	}, [navigation, global, store, colors, list, dataList, search, searcher, data, contextFilterTemp, contextFilter, actions])
+	}, [navigation, global, store, colors, list, type, dataList, search, searcher, data, contextFilterTemp, contextFilter, actions, nofilters, focus])
+
+	useEffect(() => {
+		setLoading(false)
+		const queryKey = list ? 'FiltersList' : 'Filters';
+		queryClient.removeQueries({ queryKey, exact: true })
+	}, [debounceValue])
 
 	useEffect(() => {
 		if (search) {
@@ -194,29 +202,46 @@ const Search = () => {
 		}
 	}, [search])
 
+	useEffect(() => {
+		if (searcher && !focus) {
+			setSearchFocus();
+		}
+	}, [searcher, focus])
+
+	const setSearchFocus = () => {
+		if (searcher && !focus) {
+			setTimeout(() => {
+				searchBarRef?.current?.focus();
+				setSearchFocus();
+			}, 100);
+		}
+	}
+
 	const saveToFavorite = (ad) => {
 		if (ad?.store) {
-			const ads = Session.getAds(config?.unifiedAds ? 'all' : ad?.store);
+			const ads = Session.getAds(store?._id);
 
-			const store = helper.getStore(config, ad?.store);
-			const analyticsStore = helper.formatToAnalytics(store?.company);
-			const index = ads?.findIndex(item => item?.id == ad?.id && item);
+			const getStore = helper.getStore(config, ad?.store);
+			const index = ads?.findIndex(item => (item?.id == ad?.id && item?.store == ad?.store) && item);
 
 			if (index != -1) {
 				const favorite = !ads[index].favorite;
 
 				ads[index].favorite = favorite;
-				Session.setAds(ads, (config?.unifiedAds ? 'all' : ad?.store));
+				Session.setAds(ads, store?._id);
 
 				queryClient.invalidateQueries().then(() => { });
 
-				updateStatistic({ store: store, id: ad?.id, type: 'favorite', add: favorite });
+				updateStatistic({ store: getStore, id: ad?.id, type: 'favorite', add: favorite });
 
 				if (favorite) {
 					const analyticsItem = `${ad?.plaque ? `(${ad?.plaque})` : '(0KM)'} ${ad?.brand} ${ad?.model} ${ad?.type == 1 && `${ad?.version} `}${ad?.manufactureYear}/${ad?.modelYear}`;
 					if (analyticsItem) {
 						analytics().logEvent('add_to_favorites', {
-							[analyticsStore]: analyticsItem?.toUpperCase()
+							item_id: ad?.id?.toString(),
+							item_name: analyticsItem?.toUpperCase(),
+							store_id: getStore?._id,
+							store_name: getStore?.company
 						});
 					}
 				}
@@ -266,14 +291,164 @@ const Search = () => {
 		const imageSize = Platform.OS == 'ios' ? 62 : 72;
 
 		return (
-			<>
-				<View testID={`SearchItem-${index}`}>
+			<View>
+				{(item?.id && !list) &&
+					<>
+						<Item
+							data={{
+								component:
+									<View style={{ margin: 0 }} testID={`SearchItem-${index}`} accessibilityLabel={`SearchItem-${index}`}>
+										<View>
+											{Platform.OS == 'android' &&
+												<FastImage
+													source={{
+														uri: (theme == 'dark'
+															? Image.resolveAssetSource(require('../../assets/img/watermark-dark.png')).uri
+															: Image.resolveAssetSource(require('../../assets/img/watermark.png')).uri), priority: FastImage.priority.high
+													}}
+													style={[{ position: 'absolute', width: '100%', height: 160 }]}
+												/>
+											}
+											<FastImage source={{ uri: item?.photos?.[0] }} defaultSource={theme == 'dark' ? require('../../assets/img/watermark-dark.png') : require('../../assets/img/watermark.png')} resizeMode="cover" style={[{ width: '100%', height: 160, borderRadius: Platform.OS == 'ios' ? 10 : 0 }]}>
+												{!list &&
+													<LinearGradient colors={['#00000060', '#00000000']} style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, justifyContent: 'space-between' }}>
+														<View style={{ flexDirection: 'row', margin: 10 }}>
+															{item?.changed?.featured && <Icon name={'star'} type={'material-community'} size={25} color={'#fff'} style={{ marginRight: 8 }} />}
+															{item?.video && <Icon name={'video-camera'} type={'font-awesome'} size={22} color={'#fff'} style={{ marginRight: 8 }} />}
+														</View>
+														<Button icon data={{ icon: { name: item?.favorite ? 'heart' : 'heart-outline', type: 'material-community', size: 24, color: '#fff' }, onPress: () => { saveToFavorite(item); } }} />
+													</LinearGradient>
+												}
+
+												{item?.armored &&
+													<View style={{ position: 'absolute', flexDirection: 'row', top: 125, right: 0, backgroundColor: colors.text, padding: 10, borderTopStartRadius: 15 }}>
+														<Text style={[DescriptionFontSize(), { color: colors.background }]}>BLINDADO</Text>
+														<Icon name={'shield-check'} type={'material-community'} size={15} color={colors.background} style={{ marginLeft: 5 }} />
+													</View>
+												}
+											</FastImage>
+
+										</View>
+										<View style={{ margin: 10 }}>
+											{item?.type == 1 &&
+												<>
+													<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', textTransform: 'uppercase', fontWeight: 'bold' }]} numberOfLines={1}>{item?.brand} {item?.model}</Text>
+													<Text style={[MediumFontSize(), { color: colors.text, textAlign: 'left', textTransform: 'uppercase', fontWeight: '500' }]} numberOfLines={1}>{item?.version}</Text>
+												</>
+											}
+											{item?.type == 2 &&
+												<>
+													<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', textTransform: 'uppercase', fontWeight: 'bold' }]} numberOfLines={1}>{item?.brand}</Text>
+													<Text style={[MediumFontSize(), { color: colors.text, textAlign: 'left', textTransform: 'uppercase', fontWeight: '500' }]} numberOfLines={1}>{item?.model}</Text>
+												</>
+											}
+
+											<View style={{ flex: 1, flexDirection: 'column', marginTop: 10 }}>
+												<Text style={[DescriptionFontSize(), { color: colors.text, textTransform: 'uppercase' }]}>{item?.manufactureYear}/{item?.modelYear} </Text>
+												<Text style={[DescriptionFontSize(), { color: colors.text, textTransform: 'lowercase' }]}>{new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item?.mileage)}</Text>
+											</View>
+											<View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center', marginTop: 10 }}>
+												<Text style={[TitleFontSize(1.5), { fontWeight: '500', color: colors.text }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price) : 'Consulte'}</Text>
+											</View>
+											{config?.unifiedAds &&
+												<View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
+													<Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
+													<Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
+												</View>
+											}
+										</View>
+									</View>,
+								padding: false,
+								chevron: false,
+								onPress: () => {
+									const data = { ...item }
+									delete data?.separators
+									navigation.navigate('Detail', { ad: data, title: 'Estoque', backScreen })
+								}
+							}}
+							marginTop={false}
+							expanded={Platform.OS == 'android'}
+						/>
+						<View style={{ height: 15 }} />
+					</>
+				}
+				{(item?.id && list) &&
+					<Item
+						data={{
+							icon: {
+								component:
+									<>
+										{Platform.OS == 'android' &&
+											<FastImage
+												source={{
+													uri: (theme == 'dark'
+														? Image.resolveAssetSource(require('../../assets/img/watermark-dark.png')).uri
+														: Image.resolveAssetSource(require('../../assets/img/watermark.png')).uri), priority: FastImage.priority.high
+												}}
+												style={[{ position: 'absolute', width: imageSize, height: imageSize, borderRadius: 10 }]}
+											/>
+										}
+
+										<FastImage source={{ uri: item?.photos?.[0] }} defaultSource={theme == 'dark' ? require('../../assets/img/watermark-dark.png') : require('../../assets/img/watermark.png')} resizeMode="cover" style={[{ width: imageSize, height: imageSize, borderRadius: 10 }]} />
+									</>
+							},
+							component:
+								<Item
+									data={{
+										component:
+											<>
+												<View style={{ flex: 1, marginLeft: Platform.OS == 'ios' ? 15 : 20, marginVertical: 10 }}>
+													<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left' }]} numberOfLines={1}>{item?.brand?.toUpperCase()} {item?.model?.toUpperCase()} {item?.version?.toUpperCase()}</Text>
+													<View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+														<Text style={[DescriptionFontSize(), { color: colors.text }]} numberOfLines={1}>{item?.manufactureYear}/{item?.modelYear} {item?.type == 1 && `${helper.getFirstLetterCapitalized(item?.fuel)} `}{item?.type == 1 && `${helper.getFirstLetterCapitalized(item?.transmission)} `}{new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item?.mileage)}</Text>
+													</View>
+													<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price) : 'Consulte'}</Text>
+													{config?.unifiedAds &&
+														<View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
+															<Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
+															<Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
+														</View>
+													}
+												</View>
+											</>,
+										padding: false,
+									}}
+									marginTop={false}
+									expanded
+									style={{ backgroundColor: 'transparent' }}
+								/>,
+							separator: {
+								data: [dataList[index - 1], item],
+								index
+							},
+							onPress: () => {
+								const vehicle = { ...item }
+								delete vehicle.separators
+
+								navigation.popTo(backScreen, { vehicle });
+							}
+						}}
+						marginTop={false}
+						expanded
+						index={index} count={dataList.length}
+					/>
+				}
+			</View>
+		)
+	}
+	const renderItemTest = ({ item, index, separators }) => {
+		if (dataList[index]) { dataList[index].separators = separators; }
+		const imageSize = Platform.OS == 'ios' ? 62 : 72;
+
+		return (
+			<Pressable testID={`StockItem-${index}`}>
+				<View>
 					{(item?.id && !list) &&
 						<>
 							<Item
 								data={{
 									component:
-										<View style={{ margin: 0 }}>
+										<View style={{ margin: 0 }} testID={`SearchItem-${index}`} accessibilityLabel={`SearchItem-${index}`}>
 											<View>
 												{Platform.OS == 'android' &&
 													<FastImage
@@ -287,7 +462,7 @@ const Search = () => {
 												}
 												<FastImage source={{ uri: item?.photos?.[0] }} defaultSource={theme == 'dark' ? require('../../assets/img/watermark-dark.png') : require('../../assets/img/watermark.png')} resizeMode="cover" style={[{ width: '100%', height: 160, borderRadius: Platform.OS == 'ios' ? 10 : 0 }]}>
 													{!list &&
-														<LinearGradient colors={['#00000090', '#00000000']} style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, justifyContent: 'space-between' }} >
+														<LinearGradient colors={['#00000060', '#00000000']} style={{ position: 'absolute', flexDirection: 'row', left: 0, right: 0, top: 0, justifyContent: 'space-between' }}>
 															<View style={{ flexDirection: 'row', margin: 10 }}>
 																{item?.changed?.featured && <Icon name={'star'} type={'material-community'} size={25} color={'#fff'} style={{ marginRight: 8 }} />}
 																{item?.video && <Icon name={'video-camera'} type={'font-awesome'} size={22} color={'#fff'} style={{ marginRight: 8 }} />}
@@ -324,9 +499,9 @@ const Search = () => {
 													<Text style={[DescriptionFontSize(), { color: colors.text, textTransform: 'lowercase' }]}>{new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item?.mileage)}</Text>
 												</View>
 												<View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center', marginTop: 10 }}>
-													<Text style={[TitleFontSize(1.5), { fontWeight: '500', color: colors.text }]}>{Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price)}</Text>
+													<Text style={[TitleFontSize(1.5), { fontWeight: '500', color: colors.text }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price) : 'Consulte'}</Text>
 												</View>
-												{config?.stores?.length > 1 &&
+												{config?.unifiedAds &&
 													<View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
 														<Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
 														<Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
@@ -378,8 +553,8 @@ const Search = () => {
 														<View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
 															<Text style={[DescriptionFontSize(), { color: colors.text }]} numberOfLines={1}>{item?.manufactureYear}/{item?.modelYear} {item?.type == 1 && `${helper.getFirstLetterCapitalized(item?.fuel)} `}{item?.type == 1 && `${helper.getFirstLetterCapitalized(item?.transmission)} `}{new Intl.NumberFormat('pt-BR', { style: 'unit', unit: 'kilometer' }).format(item?.mileage)}</Text>
 														</View>
-														<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price)}</Text>
-														{config?.stores?.length > 1 &&
+														<Text style={[TitleFontSize(), { color: colors.text, textAlign: 'left', marginTop: 10 }]}>{item?.price ? Intl.NumberFormat('pt-br', { style: 'currency', currency: 'BRL' }).format(item?.price) : 'Consulte'}</Text>
+														{config?.unifiedAds &&
 															<View style={{ flex: 1, flexDirection: 'row', alignContent: 'center', marginTop: 10 }}>
 																<Text style={[DescriptionFontSize(), { color: colors.secondary, textTransform: 'uppercase', flex: 1 }]} numberOfLines={1}>{helper.getStoreName(config, item?.store)}</Text>
 																<Text style={[DescriptionFontSize(), { color: colors.primary, textTransform: 'lowercase' }]}>{helper.getStoreDistance(config, item?.store)}</Text>
@@ -400,11 +575,8 @@ const Search = () => {
 								onPress: () => {
 									const vehicle = { ...item }
 									delete vehicle.separators
-									navigation.navigate({
-										name: backScreen,
-										params: { vehicle },
-										merge: true
-									})
+
+									navigation.popTo(backScreen, { vehicle });
 								}
 							}}
 							marginTop={false}
@@ -413,7 +585,7 @@ const Search = () => {
 						/>
 					}
 				</View>
-			</>
+			</Pressable>
 		)
 	}
 
@@ -422,7 +594,7 @@ const Search = () => {
 			<FlatList
 				data={loading ? [] : dataList}
 				keyExtractor={(item, index) => String(index)}
-				renderItem={renderItem}
+				renderItem={isTesting ? renderItemTest : renderItem}
 				ItemSeparatorComponent={(props) => { return list ? <Separator props={props} start={Platform.OS == 'ios' ? 75 : 110} /> : <></> }}
 				ListEmptyComponent={
 					<View>
@@ -439,6 +611,7 @@ const Search = () => {
 				maxToRenderPerBatch={40}
 				updateCellsBatchingPeriod={10}
 				onEndReachedThreshold={0.1}
+				testID='SearchScreen'
 				onEndReached={() => {
 					if (hasNextPage && !isFetchingNextPage) {
 						fetchNextPage();
@@ -452,7 +625,6 @@ const Search = () => {
 						return (
 							<>
 								{isTablet() && !list && <View style={{ height: 20 }} />}
-
 								{
 									dataList?.length > 0 && favoritesExits &&
 									<View style={[(!isTablet() && !Platform.isPad) && { paddingTop: 15 }, { backgroundColor: colors.background }]}>

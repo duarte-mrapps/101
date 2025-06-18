@@ -15,6 +15,7 @@ import MainCard from './mainCard'
 import Session from '../../libs/session'
 import { PERMISSIONS, RESULTS, request, openSettings, check } from 'react-native-permissions'
 
+import { LaunchArguments } from 'react-native-launch-arguments'
 
 const Main = (props) => {
   const { global, setGlobal, store, setStore } = useContext(GlobalContext);
@@ -26,8 +27,11 @@ const Main = (props) => {
   const [focus, setFocus] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
 
+
+  const isTesting = LaunchArguments.value()?.isTesting || false
+
   const config = Session.getConfig();
-  const configStores = config?.stores?.filter((store) => store?.hidden != true)
+  const configStores = config?.stores?.filter((store) => (store?.hidden != true && store?.virtual == false && store?.services?.length > 0))
 
   const suggestion = () => {
     const config = Session.getConfig()
@@ -54,7 +58,7 @@ const Main = (props) => {
   }
 
   useEffect(() => {
-    if (global.showConfig && config?.bypassAppStore != true) {
+    if (!isTesting && global.showConfig && config?.bypassAppStore != true) {
       setTimeout(async () => {
         Alert.alert(
           'Configurações',
@@ -210,7 +214,7 @@ const Main = (props) => {
         onChangeText: (e) => setSearch(e.nativeEvent.text),
         onFocus: (e) => { e.preventDefault(); setFocus(true) },
         onBlur: (e) => { e.preventDefault() },
-        onCancelButtonPress: (e) => { e.preventDefault(); setFocus(false) },
+        onCancelButtonPress: (e) => { e.preventDefault(); setFocus(false) }
       }
     }
   }
@@ -286,7 +290,7 @@ const Main = (props) => {
                 { latitude, longitude },
                 { latitude: storeLatitude, longitude: storeLongitude }
               )
-              
+
               return distance <= 100
             })
 
@@ -311,6 +315,8 @@ const Main = (props) => {
         contentInsetAdjustmentBehavior={"automatic"}
         keyboardShouldPersistTaps="handled"
         style={{ display: focus ? 'none' : 'flex' }}
+        testID='MainScreen'
+        accessibilityLabel='MainScreen'
       >
         <Cards />
         <MainCard />

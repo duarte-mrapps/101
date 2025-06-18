@@ -10,14 +10,14 @@ export const Constants = {
     ONESIGNAL_APP_ID: '13f08ca5-cda1-4114-a7e6-dadbfcf37eb3',
 
     SECRET_KEY: '8d05000647b79e5984339beff29549669b2c18af4fe2a8a9ed51e9559afc952c6227ecc1da91b4eb4017e6ac89579e8e35e32609c99b25a5dd904d359663ef9c',
-    uniqueId: 'com.mrapps.cardealer:uniqueId',
-    global: 'com.mrapps.cardealer:global',
-    profile: 'com.mrapps.cardealer:profile',
-    tempProfile: 'com.mrapps.cardealer:tempProfile',
-    store: 'com.mrapps.cardealer:store',
-    ads: 'com.mrapps.cardealer:ads',
-    adsUpdatedAt: 'com.mrapps.cardealer:adsUpdatedAt',
-    config: 'com.mrapps.cardealer:config'
+    uniqueId: 'com.mrapps.appdaloja:uniqueId',
+    global: 'com.mrapps.appdaloja:global',
+    profile: 'com.mrapps.appdaloja:profile',
+    tempProfile: 'com.mrapps.appdaloja:tempProfile',
+    store: 'com.mrapps.appdaloja:store',
+    ads: 'com.mrapps.appdaloja:ads',
+    adsUpdatedAt: 'com.mrapps.appdaloja:adsUpdatedAt',
+    config: 'com.mrapps.appdaloja:config'
 }
 
 export const Session = {

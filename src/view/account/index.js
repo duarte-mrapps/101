@@ -37,7 +37,7 @@ const Account = (props) => {
   useLayoutEffect(() => {
     if (config?.status == 'active') {
       navigation.setOptions({
-        headerRight: ({ tintColor }) => (
+        headerRight: ({ tintColor }) => (!config?.bypassAppStore || Platform.OS == 'android') && (
           <>
             {share && <Button icon right data={{ icon: { name: Platform.OS == 'ios' ? 'share-apple' : 'share', type: Platform.OS == 'ios' ? 'evilicons' : 'font-awesome', size: Platform.OS == 'ios' ? 33 : 19, color: tintColor }, onPress: () => { onShare(); } }} />}
             <Button icon right data={{ icon: { name: Platform.OS == 'ios' ? 'cog-outline' : 'cog', type: Platform.OS == 'ios' ? 'ionicons' : 'font-awesome5', size: Platform.OS == 'ios' ? 28 : 19, color: tintColor }, onPress: () => { onNavigate('AccountSettings') } }} />
@@ -110,7 +110,9 @@ const Account = (props) => {
 
       if (store?.sms?.formatted) {
         analytics().logEvent('click_on_sms', {
-          [analyticsStore]: store?.telegram?.formatted
+          store_id: store?._id,
+          store_name: store?.company,
+          sms: store?.sms?.formatted
         });
       }
     }
@@ -136,7 +138,9 @@ const Account = (props) => {
 
       if (store?.whatsapp?.formatted) {
         analytics().logEvent('click_on_whatsapp', {
-          [analyticsStore]: store?.whatsapp?.formatted
+          store_id: store?._id,
+          store_name: store?.company,
+          whatsapp: store?.whatsapp?.formatted
         });
       }
     }
@@ -162,7 +166,9 @@ const Account = (props) => {
 
       if (store?.telegram?.formatted) {
         analytics().logEvent('click_on_telegram', {
-          [analyticsStore]: store?.telegram?.formatted
+          store_id: store?._id,
+          store_name: store?.company,
+          telegram: store?.telegram?.formatted
         });
       }
     }
@@ -211,11 +217,11 @@ const Account = (props) => {
       contentOffset={{ x: 0, y: -1 }}
       contentInsetAdjustmentBehavior={'automatic'}
       keyboardShouldPersistTaps='handled'
-
       style={{ flex: 1 }}
       testID='AccountSidebar'
+      accessibilityLabel='AccountSidebar'
     >
-      <Header {...props} onNavigate={onNavigate} type={1} />
+      <Header {...props} onNavigate={onNavigate} selectedTab={selectedTab} setSelectedTab={setSelectedTab} type={1} />
 
       <DividerAndroidTablet />
       <Item data={sms} tabletIpadMenuType={isTablet()} forceNative={isTablet()} />

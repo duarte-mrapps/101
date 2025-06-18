@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Text, View, Linking, Platform, LayoutAnimation, FlatList, Appearance, Alert } from 'react-native';
 import { Divider, useColors, DescriptionFontSize, List, Icon, Button, MediumFontSize } from 'react-native-ui-devkit';
 import { HeaderOptions } from '@react-navigation/elements';
@@ -38,6 +38,14 @@ const AboutUsStores = () => {
 
   const { showActionSheetWithOptions } = useActionSheet();
 
+
+  /** @type { React.MutableRefObject<import('@react-navigation/elements').HeaderSearchBarRef> } */
+  const searchBarRef = useRef()
+
+  useEffect(() => {
+    if (searcher) setTimeout(() => { searchBarRef.current?.focus() }, 500)
+  }, [searcher])
+
   /** @type { HeaderOptions }  */
   const options = {
     ...searcher && { title: '' },
@@ -54,12 +62,12 @@ const AboutUsStores = () => {
     ),
     ...(Platform.OS == 'ios' || searcher) && {
       headerSearchBarOptions: {
+        ref: searchBarRef,
         placeholder: 'Pesquisar',
         cancelButtonText: 'Cancelar',
         autoCapitalize: 'none',
         textColor: colors.text,
         headerIconColor: colors.background,
-        headerCloseIconColor: colors.secondary,
         hintTextColor: colors.secondary,
         ...(searcher && { autoFocus: true }),
         hideWhenScrolling: false,
@@ -91,7 +99,7 @@ const AboutUsStores = () => {
 
   useEffect(() => {
     if (store) {
-      const screen = `${store?.company} - About Us`;
+      const screen = `${store?.company} - Sobre-nós`;
       analytics().logScreenView({
         screen_name: screen,
         screen_class: screen,
@@ -210,9 +218,10 @@ const AboutUsStores = () => {
           })
 
         if (item?.sms?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_sms', {
-            [analyticsStore]: item?.telegram?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            sms: item?.sms?.formatted
           });
         }
       }
@@ -234,9 +243,10 @@ const AboutUsStores = () => {
           })
 
         if (item?.whatsapp?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_whatsapp', {
-            [analyticsStore]: item?.whatsapp?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            whatsapp: item?.whatsapp?.formatted
           });
         }
       }
@@ -259,9 +269,10 @@ const AboutUsStores = () => {
           })
 
         if (item?.telegram?.formatted) {
-          const analyticsStore = helper.formatToAnalytics(item?.company);
           analytics().logEvent('click_on_telegram', {
-            [analyticsStore]: item?.telegram?.formatted
+            store_id: item?._id,
+            store_name: item?.company,
+            telegram: item?.telegram?.formatted
           });
         }
       }
@@ -353,7 +364,7 @@ const AboutUsStores = () => {
               <List data={[
                 item?.email && { title: item?.email, description: (Platform.OS == 'android' && 'Caso você tenha alguma dúvida, sugestão ou reclamação envie-nos um e-mail.'), color: { title: colors.primary }, delay: false, chevron: false, onPress: () => { Linking.openURL(`mailto:${item?.email}`); } },
                 item?.website && { title: item?.website, description: (Platform.OS == 'android' && 'Se desejar ver mais informações, acesse nosso site.'), color: { title: colors.primary }, delay: false, chevron: false, onPress: () => { Linking.openURL(config.website); } },
-                { title: 'Horários', description: helper.getTodayHours(item?.openingHours?.default), subdescription: helper.getTodayHours(item?.openingHours?.default), collapsible: collapsibleHours == index, onPress: () => { setCollapsibleHours(index != collapsibleHours ? index : null); LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } },
+                { title: 'Horários', description: helper.getAboutUsTodayHours(item?.openingHours?.default), subdescription: helper.getAboutUsTodayHours(item?.openingHours?.default), collapsible: collapsibleHours == index, onPress: () => { setCollapsibleHours(index != collapsibleHours ? index : null); LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } },
 
                 collapsibleHours == index && {
                   component:
@@ -371,7 +382,7 @@ const AboutUsStores = () => {
                       {item?.openingHours?.others?.map?.((openingHours) => {
                         return (
                           <List data={[
-                            { title: openingHours?.title, description: helper.getTodayHours(openingHours), subdescription: helper.getTodayHours(openingHours) },
+                            { title: openingHours?.title, description: helper.getAboutUsTodayHours(openingHours), subdescription: helper.getAboutUsTodayHours(openingHours) },
                             openingHours?.phone && { title: `Ligar ${openingHours?.phone?.formatted}`, color: { title: colors.primary }, chevron: false, delay: false, onPress: () => { Linking.openURL(Platform.OS == 'ios' ? openingHours?.phone?.ios : openingHours?.phone?.android) } },
                             { title: 'Domingo', description: (openingHours?.sunday?.from && openingHours?.sunday?.from) ? `${openingHours?.sunday?.from} às ${openingHours?.sunday?.to}` : 'Fechado', color: { title: helper.getColorByDay(0, colors) } },
                             { title: 'Segunda-feira', description: (openingHours?.monday?.from && openingHours?.monday?.from) ? `${openingHours?.monday?.from} às ${openingHours?.monday?.to}` : 'Fechado', color: { title: helper.getColorByDay(1, colors) } },
